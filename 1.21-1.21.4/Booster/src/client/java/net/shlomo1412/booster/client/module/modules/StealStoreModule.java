@@ -1,184 +1,163 @@
 package net.shlomo1412.booster.client.module.modules;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import net.shlomo1412.booster.client.module.GUIModule;
+import net.shlomo1412.booster.client.module.WidgetSettings;
 import net.shlomo1412.booster.client.widget.BoosterButton;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
  * Module that adds Steal and Store buttons to container screens.
- * - Steal: Takes all items from the container to the player's inventory
- * - Store: Puts all items from the player's inventory into the container
+ * - Steal (⬇): Moves all items from the container to the player's inventory
+ * - Store (⬆): Moves all items from the player's inventory to the container
  */
 public class StealStoreModule extends GUIModule {
-    public static final String ID = "steal_store";
     
-    // Unicode icons for buttons
-    public static final String STEAL_ICON = "⬇"; // Down arrow - take from container
-    public static final String STORE_ICON = "⬆"; // Up arrow - put into container
-
-    // Button dimensions
-    public static final int BUTTON_WIDTH = 16;
-    public static final int BUTTON_HEIGHT = 16;
-    public static final int BUTTON_SPACING = 2;
-
+    // Widget IDs for per-widget settings
+    public static final String STORE_WIDGET_ID = "store";
+    public static final String STEAL_WIDGET_ID = "steal";
+    
+    private BoosterButton stealButton;
+    private BoosterButton storeButton;
+    
     public StealStoreModule() {
         super(
-            ID,
-            "Steal & Store",
-            "Adds buttons to container screens for quickly moving all items between your inventory and the container.",
-            true, // Enabled by default
-            4,    // Default X offset from container's right edge
-            4     // Default Y offset from container's top
+            "steal_store",
+            "Steal/Store",
+            "Adds buttons to quickly move items between container and inventory.\n" +
+            "⬇ Steal: Move all items from container to your inventory.\n" +
+            "⬆ Store: Move all items from your inventory to container.",
+            true,
+            20,  // Default button width
+            20   // Default button height
         );
     }
-
+    
     /**
-     * Creates the Steal button.
+     * Creates the Steal and Store buttons for a container screen.
      *
-     * @param x       X position
-     * @param y       Y position
-     * @param handler The screen handler for the container
-     * @return The configured button widget
+     * @param screen           The screen to add buttons to
+     * @param anchorX          The anchor X position (right edge of container)
+     * @param anchorY          The anchor Y position (top of container)
+     * @param addDrawableChild Callback to add the button to the screen
      */
-    public ButtonWidget createStealButton(int x, int y, ScreenHandler handler) {
-        return BoosterButton.builder()
-            .position(x, y)
-            .size(BUTTON_WIDTH, BUTTON_HEIGHT)
-            .icon(STEAL_ICON)
-            .actionDescription("Steal All")
-            .fullDescription("Quickly transfers all items from the container into your inventory. " +
-                    "Items will be placed in the first available slots. " +
-                    "If your inventory is full, remaining items will stay in the container.")
-            .onPress(button -> performSteal(handler))
-            .build();
+    public void createButtons(HandledScreen<?> screen, int anchorX, int anchorY, 
+                              Consumer<BoosterButton> addDrawableChild) {
+        // Get per-widget settings (creates with defaults if not exists)
+        WidgetSettings storeSettings = getWidgetSettings(STORE_WIDGET_ID, 4, 0);  // Default: 4px right, top aligned
+        WidgetSettings stealSettings = getWidgetSettings(STEAL_WIDGET_ID, 4, 22); // Default: 4px right, below store
+        
+        // Store button (⬆) - on top
+        int storeX = anchorX + storeSettings.getOffsetX();
+        int storeY = anchorY + storeSettings.getOffsetY();
+        storeButton = new BoosterButton(
+            storeX, storeY,
+            storeSettings.getWidth(), storeSettings.getHeight(),
+            "⬆",
+            "Store",
+            "Move all items from your inventory to the container",
+            button -> storeItems(screen)
+        );
+        storeButton.setEditorInfo(this, STORE_WIDGET_ID, "Store", anchorX, anchorY);
+        
+        // Steal button (⬇) - below store
+        int stealX = anchorX + stealSettings.getOffsetX();
+        int stealY = anchorY + stealSettings.getOffsetY();
+        stealButton = new BoosterButton(
+            stealX, stealY,
+            stealSettings.getWidth(), stealSettings.getHeight(),
+            "⬇",
+            "Steal",
+            "Move all items from the container to your inventory",
+            button -> stealItems(screen)
+        );
+        stealButton.setEditorInfo(this, STEAL_WIDGET_ID, "Steal", anchorX, anchorY);
+        
+        addDrawableChild.accept(storeButton);
+        addDrawableChild.accept(stealButton);
     }
-
+    
     /**
-     * Creates the Store button.
-     *
-     * @param x       X position
-     * @param y       Y position
-     * @param handler The screen handler for the container
-     * @return The configured button widget
+     * Gets the buttons created by this module.
+     * 
+     * @return List of buttons, or empty if not created
      */
-    public ButtonWidget createStoreButton(int x, int y, ScreenHandler handler) {
-        return BoosterButton.builder()
-            .position(x, y)
-            .size(BUTTON_WIDTH, BUTTON_HEIGHT)
-            .icon(STORE_ICON)
-            .actionDescription("Store All")
-            .fullDescription("Quickly transfers all items from your inventory into the container. " +
-                    "Items will be placed in the first available slots. " +
-                    "If the container is full, remaining items will stay in your inventory.")
-            .onPress(button -> performStore(handler))
-            .build();
+    public List<BoosterButton> getButtons() {
+        List<BoosterButton> buttons = new ArrayList<>();
+        if (stealButton != null) buttons.add(stealButton);
+        if (storeButton != null) buttons.add(storeButton);
+        return buttons;
     }
-
+    
     /**
-     * Creates both Steal and Store buttons at the calculated positions.
-     *
-     * @param screen     The container screen
-     * @param handler    The screen handler
-     * @param containerX The X position of the container GUI
-     * @param containerY The Y position of the container GUI
-     * @param containerWidth The width of the container GUI
-     * @param addButton  Consumer to add buttons to the screen
+     * Steals all items from the container to player inventory.
      */
-    public void createButtons(HandledScreen<?> screen, ScreenHandler handler,
-                              int containerX, int containerY, int containerWidth,
-                              Consumer<ButtonWidget> addButton) {
-        if (!isEnabled()) {
-            return;
-        }
-
-        // Only add buttons to generic container screens (chests, barrels, etc.)
-        if (!(handler instanceof GenericContainerScreenHandler)) {
-            return;
-        }
-
-        // Position buttons at the right side of the container
-        int baseX = containerX + containerWidth + getOffsetX();
-        int baseY = containerY + getOffsetY();
-
-        // Store button (top) - moves items TO the container
-        ButtonWidget storeButton = createStoreButton(baseX, baseY, handler);
-        addButton.accept(storeButton);
-
-        // Steal button (below store) - takes items FROM the container
-        ButtonWidget stealButton = createStealButton(baseX, baseY + BUTTON_HEIGHT + BUTTON_SPACING, handler);
-        addButton.accept(stealButton);
-    }
-
-    /**
-     * Performs the steal action - moves items from container to player inventory.
-     */
-    private void performSteal(ScreenHandler handler) {
+    private void stealItems(HandledScreen<?> screen) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || client.interactionManager == null) {
-            return;
-        }
-
-        // Get all container slots (non-player inventory slots)
+        if (client.player == null || client.interactionManager == null) return;
+        
+        var handler = screen.getScreenHandler();
+        
         for (Slot slot : handler.slots) {
             // Skip player inventory slots
-            if (slot.inventory instanceof PlayerInventory) {
-                continue;
+            if (slot.inventory instanceof PlayerInventory) continue;
+            
+            if (slot.hasStack()) {
+                // Shift-click to move to player inventory
+                client.interactionManager.clickSlot(
+                    handler.syncId,
+                    slot.id,
+                    0,
+                    SlotActionType.QUICK_MOVE,
+                    client.player
+                );
             }
-
-            // Skip empty slots
-            if (!slot.hasStack()) {
-                continue;
-            }
-
-            // Quick move the item (shift-click)
-            client.interactionManager.clickSlot(
-                handler.syncId,
-                slot.id,
-                0,
-                SlotActionType.QUICK_MOVE,
-                client.player
-            );
         }
     }
-
+    
     /**
-     * Performs the store action - moves items from player inventory to container.
+     * Stores all items from player inventory to the container.
      */
-    private void performStore(ScreenHandler handler) {
+    private void storeItems(HandledScreen<?> screen) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || client.interactionManager == null) {
-            return;
-        }
-
-        // Get all player inventory slots
+        if (client.player == null || client.interactionManager == null) return;
+        
+        var handler = screen.getScreenHandler();
+        
         for (Slot slot : handler.slots) {
-            // Only process player inventory slots (not hotbar armor, etc. in some screens)
-            if (!(slot.inventory instanceof PlayerInventory)) {
-                continue;
+            // Only process player inventory slots (not hotbar for now)
+            if (!(slot.inventory instanceof PlayerInventory)) continue;
+            
+            if (slot.hasStack()) {
+                // Shift-click to move to container
+                client.interactionManager.clickSlot(
+                    handler.syncId,
+                    slot.id,
+                    0,
+                    SlotActionType.QUICK_MOVE,
+                    client.player
+                );
             }
-
-            // Skip empty slots
-            if (!slot.hasStack()) {
-                continue;
-            }
-
-            // Quick move the item (shift-click)
-            client.interactionManager.clickSlot(
-                handler.syncId,
-                slot.id,
-                0,
-                SlotActionType.QUICK_MOVE,
-                client.player
-            );
         }
+    }
+    
+    @Override
+    protected void onEnable() {
+        // Nothing special to do on enable
+    }
+    
+    @Override
+    protected void onDisable() {
+        // Clear button references
+        stealButton = null;
+        storeButton = null;
     }
 }

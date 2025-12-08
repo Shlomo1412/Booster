@@ -7,11 +7,13 @@ import com.google.gson.JsonParser;
 import net.fabricmc.loader.api.FabricLoader;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.Module;
+import net.shlomo1412.booster.client.module.WidgetSettings;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Map;
 
 /**
  * Handles saving and loading of Booster configuration.
@@ -40,10 +42,24 @@ public class BoosterConfig {
             JsonObject moduleData = new JsonObject();
             moduleData.addProperty("enabled", module.isEnabled());
 
-            // Save GUI module specific settings
+            // Save GUI module per-widget settings
             if (module instanceof GUIModule guiModule) {
-                moduleData.addProperty("offsetX", guiModule.getOffsetX());
-                moduleData.addProperty("offsetY", guiModule.getOffsetY());
+                JsonObject widgetsObject = new JsonObject();
+                
+                for (Map.Entry<String, WidgetSettings> entry : guiModule.getAllWidgetSettings().entrySet()) {
+                    String widgetId = entry.getKey();
+                    WidgetSettings settings = entry.getValue();
+                    
+                    JsonObject widgetData = new JsonObject();
+                    widgetData.addProperty("offsetX", settings.getOffsetX());
+                    widgetData.addProperty("offsetY", settings.getOffsetY());
+                    widgetData.addProperty("width", settings.getWidth());
+                    widgetData.addProperty("height", settings.getHeight());
+                    
+                    widgetsObject.add(widgetId, widgetData);
+                }
+                
+                moduleData.add("widgets", widgetsObject);
             }
 
             modulesObject.add(module.getId(), moduleData);
@@ -92,12 +108,20 @@ public class BoosterConfig {
                     loadEnabledState(module, enabled);
                 }
 
-                // Load GUI module specific settings
-                if (module instanceof GUIModule guiModule) {
-                    if (moduleData.has("offsetX") && moduleData.has("offsetY")) {
-                        int offsetX = moduleData.get("offsetX").getAsInt();
-                        int offsetY = moduleData.get("offsetY").getAsInt();
-                        loadOffset(guiModule, offsetX, offsetY);
+                // Load GUI module per-widget settings
+                if (module instanceof GUIModule guiModule && moduleData.has("widgets")) {
+                    JsonObject widgetsObject = moduleData.getAsJsonObject("widgets");
+                    
+                    for (String widgetId : widgetsObject.keySet()) {
+                        JsonObject widgetData = widgetsObject.getAsJsonObject(widgetId);
+                        
+                        int offsetX = widgetData.has("offsetX") ? widgetData.get("offsetX").getAsInt() : 0;
+                        int offsetY = widgetData.has("offsetY") ? widgetData.get("offsetY").getAsInt() : 0;
+                        int width = widgetData.has("width") ? widgetData.get("width").getAsInt() : guiModule.getDefaultWidth();
+                        int height = widgetData.has("height") ? widgetData.get("height").getAsInt() : guiModule.getDefaultHeight();
+                        
+                        // Load widget settings - actual defaults will be set when createButtons is called
+                        guiModule.loadWidgetSettings(widgetId, offsetX, offsetY, width, height);
                     }
                 }
             }
@@ -120,24 +144,6 @@ public class BoosterConfig {
         } catch (Exception e) {
             // Fallback: use the setter (will trigger save)
             module.setEnabled(enabled);
-        }
-    }
-
-    /**
-     * Loads offset without triggering save.
-     * Uses reflection to set the fields directly.
-     */
-    private void loadOffset(GUIModule module, int offsetX, int offsetY) {
-        try {
-            var fieldX = GUIModule.class.getDeclaredField("offsetX");
-            var fieldY = GUIModule.class.getDeclaredField("offsetY");
-            fieldX.setAccessible(true);
-            fieldY.setAccessible(true);
-            fieldX.set(module, offsetX);
-            fieldY.set(module, offsetY);
-        } catch (Exception e) {
-            // Fallback: use the setter (will trigger save)
-            module.setOffset(offsetX, offsetY);
         }
     }
 
