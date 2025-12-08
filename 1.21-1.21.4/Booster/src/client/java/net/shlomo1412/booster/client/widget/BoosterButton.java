@@ -36,9 +36,27 @@ public class BoosterButton extends ButtonWidget {
         super(x, y, width, height, Text.literal(icon), onPress, DEFAULT_NARRATION_SUPPLIER);
         this.actionDescription = actionDescription;
         this.fullDescription = fullDescription;
-        this.normalTooltip = Tooltip.of(Text.literal(actionDescription));
+        this.normalTooltip = Tooltip.of(createNormalTooltip());
         this.extendedTooltip = Tooltip.of(createExtendedTooltip());
         setTooltip(normalTooltip);
+    }
+
+    /**
+     * Creates the normal tooltip with consistent formatting.
+     */
+    private Text createNormalTooltip() {
+        MutableText text = Text.empty();
+        
+        // Action name in gold
+        text.append(Text.literal(actionDescription).formatted(Formatting.GOLD));
+        text.append(Text.literal("\n"));
+        
+        // Hint to hold CTRL in dark gray
+        text.append(Text.literal("Hold ").formatted(Formatting.DARK_GRAY));
+        text.append(Text.literal("CTRL").formatted(Formatting.GRAY, Formatting.BOLD));
+        text.append(Text.literal(" for description").formatted(Formatting.DARK_GRAY));
+        
+        return text;
     }
 
     /**

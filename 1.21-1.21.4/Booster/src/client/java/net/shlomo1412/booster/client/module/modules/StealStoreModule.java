@@ -4,6 +4,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
@@ -99,17 +100,22 @@ public class StealStoreModule extends GUIModule {
             return;
         }
 
+        // Only add buttons to generic container screens (chests, barrels, etc.)
+        if (!(handler instanceof GenericContainerScreenHandler)) {
+            return;
+        }
+
         // Position buttons at the right side of the container
         int baseX = containerX + containerWidth + getOffsetX();
         int baseY = containerY + getOffsetY();
 
-        // Steal button (top)
-        ButtonWidget stealButton = createStealButton(baseX, baseY, handler);
-        addButton.accept(stealButton);
-
-        // Store button (below steal)
-        ButtonWidget storeButton = createStoreButton(baseX, baseY + BUTTON_HEIGHT + BUTTON_SPACING, handler);
+        // Store button (top) - moves items TO the container
+        ButtonWidget storeButton = createStoreButton(baseX, baseY, handler);
         addButton.accept(storeButton);
+
+        // Steal button (below store) - takes items FROM the container
+        ButtonWidget stealButton = createStealButton(baseX, baseY + BUTTON_HEIGHT + BUTTON_SPACING, handler);
+        addButton.accept(stealButton);
     }
 
     /**
