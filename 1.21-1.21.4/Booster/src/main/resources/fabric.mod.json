@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "booster",
+  "version": "${version}",
+  "name": "Booster",
+  "description": "Boost minecraft GUI",
+  "authors": [],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/booster/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "net.shlomo1412.booster.client.BoosterClient"
+    ],
+    "main": [
+      "net.shlomo1412.booster.Booster"
+    ]
+  },
+  "mixins": [
+    "booster.mixins.json",
+    {
+      "config": "booster.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
