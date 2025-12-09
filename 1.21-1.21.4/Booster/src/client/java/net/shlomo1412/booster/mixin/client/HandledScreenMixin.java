@@ -181,12 +181,18 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     private void booster$onRender(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         EditorModeManager editor = EditorModeManager.getInstance();
         
-        // Render editor UI on top of everything
+        // Render editor UI on top of everything using elevated z-level
+        // Items render at z=150-200, item count labels at z=200-250, tooltips at z=400
+        // We use z=500 for our overlays to ensure they're above item labels
         if (booster$editorSidebar != null) {
             // Check if sidebar should be removed after close animation
             if (booster$editorSidebar.isClosed()) {
                 booster$editorSidebar = null;
             } else {
+                // Push matrices and translate to higher z-level
+                context.getMatrices().push();
+                context.getMatrices().translate(0, 0, 600);
+                
                 // Dim the area to the RIGHT of the sidebar (since sidebar is on left)
                 int sidebarRightEdge = booster$editorSidebar.getRightEdge();
                 if (sidebarRightEdge > 0 && editor.isEditorModeActive()) {
@@ -202,17 +208,22 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                             "§6§lEDITOR MODE", this.width / 2, 6, 0xFFFFAA00);
                 }
                 
-                // Render sidebar LAST so it appears above everything (including item labels)
+                // Render sidebar at elevated z-level
                 booster$editorSidebar.render(context, mouseX, mouseY, delta);
+                
+                context.getMatrices().pop();
             }
         }
         
-        // Render guide on top of everything
+        // Render guide on top of everything (even higher z-level)
         if (booster$editorGuide != null) {
             if (booster$editorGuide.isClosed()) {
                 booster$editorGuide = null;
             } else {
+                context.getMatrices().push();
+                context.getMatrices().translate(0, 0, 650);
                 booster$editorGuide.render(context, mouseX, mouseY, delta);
+                context.getMatrices().pop();
             }
         }
     }
