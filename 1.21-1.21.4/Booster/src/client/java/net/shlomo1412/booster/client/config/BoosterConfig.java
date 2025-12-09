@@ -24,9 +24,26 @@ public class BoosterConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private final Path configPath;
+    
+    // Track if editor guide has been shown
+    private boolean editorGuideShown = false;
 
     public BoosterConfig() {
         this.configPath = FabricLoader.getInstance().getConfigDir().resolve(CONFIG_FILE_NAME);
+    }
+    
+    /**
+     * @return true if the editor guide has been shown before
+     */
+    public boolean hasEditorGuideBeenShown() {
+        return editorGuideShown;
+    }
+    
+    /**
+     * Marks the editor guide as shown and saves config.
+     */
+    public void markEditorGuideShown() {
+        this.editorGuideShown = true;
     }
 
     /**
@@ -36,6 +53,12 @@ public class BoosterConfig {
      */
     public void save(Collection<Module> modules) {
         JsonObject root = new JsonObject();
+        
+        // Save general settings
+        JsonObject settings = new JsonObject();
+        settings.addProperty("editorGuideShown", editorGuideShown);
+        root.add("settings", settings);
+        
         JsonObject modulesObject = new JsonObject();
 
         for (Module module : modules) {
@@ -48,13 +71,13 @@ public class BoosterConfig {
                 
                 for (Map.Entry<String, WidgetSettings> entry : guiModule.getAllWidgetSettings().entrySet()) {
                     String widgetId = entry.getKey();
-                    WidgetSettings settings = entry.getValue();
+                    WidgetSettings widgetSettings = entry.getValue();
                     
                     JsonObject widgetData = new JsonObject();
-                    widgetData.addProperty("offsetX", settings.getOffsetX());
-                    widgetData.addProperty("offsetY", settings.getOffsetY());
-                    widgetData.addProperty("width", settings.getWidth());
-                    widgetData.addProperty("height", settings.getHeight());
+                    widgetData.addProperty("offsetX", widgetSettings.getOffsetX());
+                    widgetData.addProperty("offsetY", widgetSettings.getOffsetY());
+                    widgetData.addProperty("width", widgetSettings.getWidth());
+                    widgetData.addProperty("height", widgetSettings.getHeight());
                     
                     widgetsObject.add(widgetId, widgetData);
                 }
@@ -88,6 +111,14 @@ public class BoosterConfig {
         try {
             String content = Files.readString(configPath);
             JsonObject root = JsonParser.parseString(content).getAsJsonObject();
+
+            // Load general settings
+            if (root.has("settings")) {
+                JsonObject settings = root.getAsJsonObject("settings");
+                if (settings.has("editorGuideShown")) {
+                    editorGuideShown = settings.get("editorGuideShown").getAsBoolean();
+                }
+            }
 
             if (!root.has("modules")) {
                 return;

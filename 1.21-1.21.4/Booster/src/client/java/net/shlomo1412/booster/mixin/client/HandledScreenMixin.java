@@ -14,6 +14,7 @@ import net.shlomo1412.booster.client.editor.EditorModeManager;
 import net.shlomo1412.booster.client.editor.ScreenInfo;
 import net.shlomo1412.booster.client.editor.widget.ConfigButton;
 import net.shlomo1412.booster.client.editor.widget.EditButton;
+import net.shlomo1412.booster.client.editor.widget.EditorGuide;
 import net.shlomo1412.booster.client.editor.widget.EditorSidebar;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.ModuleManager;
@@ -63,6 +64,9 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     private EditorSidebar booster$editorSidebar;
     
     @Unique
+    private EditorGuide booster$editorGuide;
+    
+    @Unique
     private boolean booster$hasBoosterContent = false;
 
     // Required for extending Screen
@@ -107,16 +111,16 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
             }
         }
 
-        // Add Edit button if we have Booster content
+        // Add Edit and Config buttons at TOP-RIGHT of SCREEN (not container)
         if (booster$hasBoosterContent) {
-            // Position config button at top-right of container
-            int configX = x + backgroundWidth + 4;
-            int configY = y - 24;
+            // Position at top-right corner of screen with padding
+            int configX = this.width - 46;  // 20 + 2 + 20 + 4 = 46 from right edge
+            int configY = 4;
             
             booster$configButton = ConfigButton.create(configX, configY, this);
             this.addDrawableChild(booster$configButton);
             
-            // Position edit button next to config button (both are 20px wide)
+            // Position edit button next to config button
             int editX = configX + 22;  // 20px button + 2px gap
             int editY = configY;
             
@@ -148,9 +152,24 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                 activeModules,
                 element -> {}
             );
+            
+            // Show first-time guide if not shown before
+            if (!ModuleManager.getInstance().getConfig().hasEditorGuideBeenShown()) {
+                booster$editorGuide = new EditorGuide(
+                    MinecraftClient.getInstance(),
+                    () -> {
+                        booster$editorGuide = null;
+                        ModuleManager.getInstance().getConfig().markEditorGuideShown();
+                        ModuleManager.getInstance().saveConfig();
+                    }
+                );
+            }
         } else {
             if (booster$editorSidebar != null) {
                 booster$editorSidebar.close();
+            }
+            if (booster$editorGuide != null) {
+                booster$editorGuide.close();
             }
         }
     }
@@ -162,27 +181,39 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     private void booster$onRender(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         EditorModeManager editor = EditorModeManager.getInstance();
         
+        // Render editor UI on top of everything
         if (booster$editorSidebar != null) {
             // Check if sidebar should be removed after close animation
             if (booster$editorSidebar.isClosed()) {
                 booster$editorSidebar = null;
-                return;
+            } else {
+                // Dim the area to the RIGHT of the sidebar (since sidebar is on left)
+                int sidebarRightEdge = booster$editorSidebar.getRightEdge();
+                if (sidebarRightEdge > 0 && editor.isEditorModeActive()) {
+                    context.fill(sidebarRightEdge, 0, this.width, this.height, 0x60000000);
+                }
+                
+                // Draw "EDITOR MODE" indicator at top center
+                if (editor.isEditorModeActive()) {
+                    // Background bar for the indicator
+                    context.fill(this.width / 2 - 60, 0, this.width / 2 + 60, 20, 0xDD000000);
+                    context.fill(this.width / 2 - 60, 20, this.width / 2 + 60, 22, 0xFFFFAA00);
+                    context.drawCenteredTextWithShadow(this.textRenderer, 
+                            "§6§lEDITOR MODE", this.width / 2, 6, 0xFFFFAA00);
+                }
+                
+                // Render sidebar LAST so it appears above everything (including item labels)
+                booster$editorSidebar.render(context, mouseX, mouseY, delta);
             }
-            
-            // Dim the area to the RIGHT of the sidebar (since sidebar is on left)
-            int sidebarRightEdge = booster$editorSidebar.getRightEdge();
-            if (sidebarRightEdge > 0) {
-                context.fill(sidebarRightEdge, 0, this.width, this.height, 0x60000000);
+        }
+        
+        // Render guide on top of everything
+        if (booster$editorGuide != null) {
+            if (booster$editorGuide.isClosed()) {
+                booster$editorGuide = null;
+            } else {
+                booster$editorGuide.render(context, mouseX, mouseY, delta);
             }
-            
-            // Draw "EDITOR MODE" indicator at top center
-            if (editor.isEditorModeActive()) {
-                context.drawCenteredTextWithShadow(this.textRenderer, 
-                        "§6§lEDITOR MODE", this.width / 2, 8, 0xFFFFAA00);
-            }
-            
-            // Render sidebar LAST so it appears above everything
-            booster$editorSidebar.render(context, mouseX, mouseY, delta);
         }
     }
 
@@ -203,6 +234,14 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
      */
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void booster$onMouseClicked(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+        // Handle guide clicks first (blocks all other input)
+        if (booster$editorGuide != null && !booster$editorGuide.isClosed()) {
+            if (booster$editorGuide.mouseClicked(mouseX, mouseY, button)) {
+                cir.setReturnValue(true);
+                return;
+            }
+        }
+        
         EditorModeManager editor = EditorModeManager.getInstance();
         
         if (!editor.isEditorModeActive()) {

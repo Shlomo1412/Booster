@@ -78,6 +78,13 @@ public class ModuleManager {
     public Collection<Module> getModules() {
         return Collections.unmodifiableCollection(modules.values());
     }
+    
+    /**
+     * @return The config handler
+     */
+    public BoosterConfig getConfig() {
+        return config;
+    }
 
     /**
      * Gets all modules of a specific type.

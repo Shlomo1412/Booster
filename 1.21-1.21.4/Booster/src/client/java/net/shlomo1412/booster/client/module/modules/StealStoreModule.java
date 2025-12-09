@@ -52,23 +52,11 @@ public class StealStoreModule extends GUIModule {
     public void createButtons(HandledScreen<?> screen, int anchorX, int anchorY, 
                               Consumer<BoosterButton> addDrawableChild) {
         // Get per-widget settings (creates with defaults if not exists)
-        WidgetSettings storeSettings = getWidgetSettings(STORE_WIDGET_ID, 4, 0);  // Default: 4px right, top aligned
-        WidgetSettings stealSettings = getWidgetSettings(STEAL_WIDGET_ID, 4, 22); // Default: 4px right, below store
+        // Default positions: both buttons side by side at top-right of container
+        WidgetSettings stealSettings = getWidgetSettings(STEAL_WIDGET_ID, 4, 0);   // ⬇ on left
+        WidgetSettings storeSettings = getWidgetSettings(STORE_WIDGET_ID, 26, 0);  // ⬆ on right (4 + 20 + 2 gap)
         
-        // Store button (⬆) - on top
-        int storeX = anchorX + storeSettings.getOffsetX();
-        int storeY = anchorY + storeSettings.getOffsetY();
-        storeButton = new BoosterButton(
-            storeX, storeY,
-            storeSettings.getWidth(), storeSettings.getHeight(),
-            "⬆",
-            "Store",
-            "Move all items from your inventory to the container",
-            button -> storeItems(screen)
-        );
-        storeButton.setEditorInfo(this, STORE_WIDGET_ID, "Store", anchorX, anchorY);
-        
-        // Steal button (⬇) - below store
+        // Steal button (⬇) - left position
         int stealX = anchorX + stealSettings.getOffsetX();
         int stealY = anchorY + stealSettings.getOffsetY();
         stealButton = new BoosterButton(
@@ -81,8 +69,21 @@ public class StealStoreModule extends GUIModule {
         );
         stealButton.setEditorInfo(this, STEAL_WIDGET_ID, "Steal", anchorX, anchorY);
         
-        addDrawableChild.accept(storeButton);
+        // Store button (⬆) - right position
+        int storeX = anchorX + storeSettings.getOffsetX();
+        int storeY = anchorY + storeSettings.getOffsetY();
+        storeButton = new BoosterButton(
+            storeX, storeY,
+            storeSettings.getWidth(), storeSettings.getHeight(),
+            "⬆",
+            "Store",
+            "Move all items from your inventory to the container",
+            button -> storeItems(screen)
+        );
+        storeButton.setEditorInfo(this, STORE_WIDGET_ID, "Store", anchorX, anchorY);
+        
         addDrawableChild.accept(stealButton);
+        addDrawableChild.accept(storeButton);
     }
     
     /**
