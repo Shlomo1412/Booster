@@ -21,6 +21,8 @@ import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.ModuleManager;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
 import net.shlomo1412.booster.client.module.modules.SearchBarModule;
+import net.shlomo1412.booster.client.module.modules.SortContainerModule;
+import net.shlomo1412.booster.client.module.modules.SortInventoryModule;
 import net.shlomo1412.booster.client.module.modules.StealStoreModule;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -80,6 +82,12 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     private InventoryProgressModule booster$inventoryProgressModule;
     
     @Unique
+    private SortInventoryModule booster$sortInventoryModule;
+    
+    @Unique
+    private SortContainerModule booster$sortContainerModule;
+    
+    @Unique
     private net.shlomo1412.booster.client.widget.BoosterProgressBar booster$progressBarWidget;
 
     // Required for extending Screen
@@ -103,6 +111,8 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         booster$hasBoosterContent = false;
         booster$searchBarModule = null;
         booster$inventoryProgressModule = null;
+        booster$sortInventoryModule = null;
+        booster$sortContainerModule = null;
         booster$progressBarWidget = null;
 
         // Only add Booster content to container screens
@@ -155,6 +165,37 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                 // Note: We don't add it as a drawable child since it's rendered separately
             }
         }
+        
+        // Add Sort Inventory button (sorts player inventory)
+        booster$sortInventoryModule = ModuleManager.getInstance().getModule(SortInventoryModule.class);
+        if (booster$sortInventoryModule != null) {
+            booster$hasBoosterContent = true;
+            
+            if (booster$sortInventoryModule.isEnabled()) {
+                booster$sortInventoryModule.createButton(
+                    self,
+                    x + backgroundWidth,  // Right edge of container
+                    y,
+                    true,  // isContainerScreen = true
+                    button -> this.addDrawableChild(button)
+                );
+            }
+        }
+        
+        // Add Sort Container button (sorts container contents)
+        booster$sortContainerModule = ModuleManager.getInstance().getModule(SortContainerModule.class);
+        if (booster$sortContainerModule != null) {
+            booster$hasBoosterContent = true;
+            
+            if (booster$sortContainerModule.isEnabled()) {
+                booster$sortContainerModule.createButton(
+                    self,
+                    x + backgroundWidth,  // Right edge of container
+                    y,
+                    button -> this.addDrawableChild(button)
+                );
+            }
+        }
 
         // Add Edit and Config buttons at TOP-RIGHT of SCREEN (not container)
         if (booster$hasBoosterContent) {
@@ -198,6 +239,16 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
             InventoryProgressModule inventoryProgress = ModuleManager.getInstance().getModule(InventoryProgressModule.class);
             if (inventoryProgress != null) {
                 activeModules.add(inventoryProgress);
+            }
+            
+            SortInventoryModule sortInventory = ModuleManager.getInstance().getModule(SortInventoryModule.class);
+            if (sortInventory != null) {
+                activeModules.add(sortInventory);
+            }
+            
+            SortContainerModule sortContainer = ModuleManager.getInstance().getModule(SortContainerModule.class);
+            if (sortContainer != null) {
+                activeModules.add(sortContainer);
             }
             
             ScreenInfo screenInfo = new ScreenInfo(this, x, y, backgroundWidth, backgroundHeight);
@@ -310,13 +361,29 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     }
 
     /**
-     * Handle mouse scroll for sidebar.
+     * Handle mouse scroll for sidebar and sort buttons.
      */
     @Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true)
     private void booster$onMouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount, CallbackInfoReturnable<Boolean> cir) {
+        // Handle sidebar scroll
         if (booster$editorSidebar != null && booster$editorSidebar.isMouseOver(mouseX, mouseY)) {
             if (booster$editorSidebar.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount)) {
                 cir.setReturnValue(true);
+                return;
+            }
+        }
+        
+        // Handle sort button scroll (Alt+Scroll to change mode)
+        if (booster$sortInventoryModule != null && booster$sortInventoryModule.isEnabled()) {
+            if (booster$sortInventoryModule.handleScroll(mouseX, mouseY, verticalAmount)) {
+                cir.setReturnValue(true);
+                return;
+            }
+        }
+        if (booster$sortContainerModule != null && booster$sortContainerModule.isEnabled()) {
+            if (booster$sortContainerModule.handleScroll(mouseX, mouseY, verticalAmount)) {
+                cir.setReturnValue(true);
+                return;
             }
         }
     }
@@ -425,5 +492,13 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         booster$editorSidebar = null;
         booster$searchBarModule = null;
         booster$inventoryProgressModule = null;
+        if (booster$sortInventoryModule != null) {
+            booster$sortInventoryModule.clearButton();
+            booster$sortInventoryModule = null;
+        }
+        if (booster$sortContainerModule != null) {
+            booster$sortContainerModule.clearButton();
+            booster$sortContainerModule = null;
+        }
     }
 }

@@ -4,6 +4,8 @@ import net.fabricmc.api.ClientModInitializer;
 import net.shlomo1412.booster.client.module.ModuleManager;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
 import net.shlomo1412.booster.client.module.modules.SearchBarModule;
+import net.shlomo1412.booster.client.module.modules.SortContainerModule;
+import net.shlomo1412.booster.client.module.modules.SortInventoryModule;
 import net.shlomo1412.booster.client.module.modules.StealStoreModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +39,8 @@ public class BoosterClient implements ClientModInitializer {
         manager.register(new StealStoreModule());
         manager.register(new SearchBarModule());
         manager.register(new InventoryProgressModule());
+        manager.register(new SortInventoryModule());
+        manager.register(new SortContainerModule());
         
         // Add more modules here as they are created
     }
