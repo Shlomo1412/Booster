@@ -50,12 +50,17 @@ public class BoosterConfigScreen extends Screen {
     private final Map<String, List<Module>> categories = new LinkedHashMap<>();
     private String activeCategory = "All";
     
-    // Scrolling
+    // Scrolling for module list
     private float scrollOffset = 0f;
     private float targetScrollOffset = 0f;
     private float maxScrollOffset = 0f;
     private static final float SCROLL_SPEED = 0.25f;
     private static final int SCROLL_AMOUNT = 30;
+    
+    // Scrolling for details panel
+    private float detailScrollOffset = 0f;
+    private float targetDetailScrollOffset = 0f;
+    private float maxDetailScrollOffset = 0f;
     
     // Selected module for details panel
     private Module selectedModule = null;
@@ -118,6 +123,7 @@ public class BoosterConfigScreen extends Screen {
         // Update animations
         openAnimation = MathHelper.lerp(0.15f, openAnimation, 1f);
         scrollOffset = MathHelper.lerp(SCROLL_SPEED, scrollOffset, targetScrollOffset);
+        detailScrollOffset = MathHelper.lerp(SCROLL_SPEED, detailScrollOffset, targetDetailScrollOffset);
         
         // Solid background (no blur effect)
         context.fill(0, 0, this.width, this.height, BG_COLOR);
@@ -351,12 +357,19 @@ public class BoosterConfigScreen extends Screen {
         if (selectedModule == null) {
             context.drawCenteredTextWithShadow(this.textRenderer, "Select a module",
                 x + width / 2, y + height / 2, TEXT_DIM);
+            maxDetailScrollOffset = 0;
             return;
         }
         
         int contentX = x + CONTENT_PADDING;
-        int contentY = y + CONTENT_PADDING;
+        int contentStartY = y + CONTENT_PADDING;
         int contentWidth = width - CONTENT_PADDING * 2;
+        
+        // Enable scissor for scrolling content
+        context.enableScissor(x, y, x + width, y + height);
+        
+        // Apply scroll offset
+        int contentY = contentStartY - (int) detailScrollOffset;
         
         // Module name
         context.drawTextWithShadow(this.textRenderer,
@@ -431,12 +444,77 @@ public class BoosterConfigScreen extends Screen {
                 contentY += 14;
             }
             contentY += 6;
+            
+            // Show module settings if available
+            if (guiModule.hasSettings()) {
+                context.fill(contentX, contentY, contentX + contentWidth, contentY + 1, CARD_BORDER);
+                contentY += 10;
+                
+                context.drawTextWithShadow(this.textRenderer,
+                    Text.literal("Settings").formatted(Formatting.WHITE),
+                    contentX, contentY, TEXT_PRIMARY);
+                contentY += 14;
+                
+                context.drawTextWithShadow(this.textRenderer,
+                    Text.literal("(Edit in Editor Mode)").formatted(Formatting.ITALIC),
+                    contentX, contentY, TEXT_DIM);
+                contentY += 14;
+                
+                for (var setting : guiModule.getSettings()) {
+                    String settingName = setting.getName();
+                    String settingValue = formatSettingValue(setting);
+                    context.drawTextWithShadow(this.textRenderer,
+                        settingName + ":",
+                        contentX, contentY, TEXT_SECONDARY);
+                    contentY += 12;
+                    context.drawTextWithShadow(this.textRenderer,
+                        "  " + settingValue,
+                        contentX, contentY, 0xFF88CCFF);
+                    contentY += 14;
+                }
+                contentY += 6;
+            }
         }
         
         // Type
         String type = selectedModule instanceof GUIModule ? "GUI Module" : "Utility Module";
         int typeColor = selectedModule instanceof GUIModule ? 0xFF5588FF : 0xFFAA55FF;
         context.drawTextWithShadow(this.textRenderer, "Type: " + type, contentX, contentY, typeColor);
+        contentY += 20;
+        
+        // Disable scissor
+        context.disableScissor();
+        
+        // Calculate max scroll offset based on content height
+        int totalContentHeight = contentY + (int) detailScrollOffset - contentStartY;
+        maxDetailScrollOffset = Math.max(0, totalContentHeight - height + CONTENT_PADDING * 2);
+        
+        // Reset scroll when selecting new module
+        if (targetDetailScrollOffset > maxDetailScrollOffset) {
+            targetDetailScrollOffset = maxDetailScrollOffset;
+        }
+    }
+    
+    /**
+     * Formats a module setting value for display.
+     */
+    private String formatSettingValue(net.shlomo1412.booster.client.module.ModuleSetting<?> setting) {
+        Object value = setting.getValue();
+        if (value instanceof Integer color && setting instanceof net.shlomo1412.booster.client.module.ModuleSetting.ColorSetting) {
+            // Format as hex color
+            return String.format("#%06X", color & 0xFFFFFF);
+        } else if (value instanceof Enum<?> enumValue) {
+            return enumValue.toString();
+        } else if (value instanceof Boolean bool) {
+            return bool ? "Yes" : "No";
+        } else if (value instanceof Number num) {
+            // Format with reasonable precision
+            if (value instanceof Float || value instanceof Double) {
+                return String.format("%.2f", num.doubleValue());
+            }
+            return num.toString();
+        }
+        return String.valueOf(value);
     }
     
     private List<String> wrapText(String text, int maxWidth) {
@@ -507,6 +585,9 @@ public class BoosterConfigScreen extends Screen {
                     
                     // Select module
                     selectedModule = module;
+                    // Reset details scroll when selecting a new module
+                    targetDetailScrollOffset = 0;
+                    detailScrollOffset = 0;
                     return true;
                 }
                 
@@ -519,9 +600,22 @@ public class BoosterConfigScreen extends Screen {
     
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        targetScrollOffset -= verticalAmount * SCROLL_AMOUNT;
-        targetScrollOffset = MathHelper.clamp(targetScrollOffset, 0, maxScrollOffset);
-        return true;
+        // Only scroll if mouse is over the module list area (left side)
+        int contentY = HEADER_HEIGHT + TAB_HEIGHT;
+        int listWidth = this.width - SIDEBAR_WIDTH - CONTENT_PADDING * 2;
+        
+        if (mouseX < listWidth + CONTENT_PADDING) {
+            // Over module list - scroll it
+            targetScrollOffset -= verticalAmount * SCROLL_AMOUNT;
+            targetScrollOffset = MathHelper.clamp(targetScrollOffset, 0, maxScrollOffset);
+            return true;
+        } else {
+            // Over details panel - scroll details (currently details panel isn't scrollable,
+            // but we prevent scrolling the module list when hovering over details)
+            targetDetailScrollOffset -= verticalAmount * SCROLL_AMOUNT;
+            targetDetailScrollOffset = MathHelper.clamp(targetDetailScrollOffset, 0, maxDetailScrollOffset);
+            return true;
+        }
     }
     
     /**

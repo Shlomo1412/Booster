@@ -12,6 +12,7 @@ import net.shlomo1412.booster.client.editor.DraggableWidget;
 import net.shlomo1412.booster.client.editor.EditorModeManager;
 import net.shlomo1412.booster.client.editor.ScreenInfo;
 import net.shlomo1412.booster.client.module.GUIModule;
+import net.shlomo1412.booster.client.module.ModuleSetting;
 
 import java.util.HashSet;
 import java.util.List;
@@ -360,7 +361,22 @@ public class EditorSidebar implements Drawable, Element {
                                     int mouseX, int mouseY, GUIModule module, int index) {
         boolean expanded = expandedModules.contains(module.getId());
         int widgetCount = module.getWidgetIds().size();
-        int sectionHeight = expanded ? (24 + LINE_HEIGHT + 2 + widgetCount * LINE_HEIGHT + 4 + (LINE_HEIGHT + 2) * 2 + 4) : 24;
+        int settingsCount = module.hasSettings() ? module.getSettings().size() : 0;
+        
+        // Calculate section height: header + widgets info + settings + reset buttons
+        int sectionHeight = 24;  // Header always shown
+        if (expanded) {
+            sectionHeight += LINE_HEIGHT + 2;  // "Widgets: N"
+            sectionHeight += widgetCount * LINE_HEIGHT + 4;  // Widget list
+            
+            // Module settings section
+            if (settingsCount > 0) {
+                sectionHeight += LINE_HEIGHT + 4;  // "Settings:" label
+                sectionHeight += settingsCount * (LINE_HEIGHT + 8);  // Each setting
+            }
+            
+            sectionHeight += (LINE_HEIGHT + 2) * 2 + 4;  // Reset buttons
+        }
 
         int currentWidth = getCurrentWidth();
 
@@ -421,6 +437,17 @@ public class EditorSidebar implements Drawable, Element {
                 currentY += LINE_HEIGHT;
             }
             currentY += 4;
+            
+            // === MODULE SETTINGS ===
+            if (module.hasSettings()) {
+                context.drawTextWithShadow(textRenderer, "Settings:",
+                        x + PADDING + 8, currentY, TEXT_DIM_COLOR);
+                currentY += LINE_HEIGHT + 4;
+                
+                for (ModuleSetting<?> setting : module.getSettings()) {
+                    currentY = renderModuleSetting(context, x, currentY, currentWidth, mouseX, mouseY, module, setting);
+                }
+            }
 
             // Reset All Positions button
             boolean resetPosHovered = mouseX >= x + PADDING + 8 && mouseX < x + PADDING + 110 &&
@@ -440,6 +467,153 @@ public class EditorSidebar implements Drawable, Element {
         }
 
         return startY + sectionHeight;
+    }
+    
+    /**
+     * Renders a single module setting control.
+     */
+    private int renderModuleSetting(DrawContext context, int x, int startY, int currentWidth,
+                                     int mouseX, int mouseY, GUIModule module, ModuleSetting<?> setting) {
+        int labelWidth = 70;
+        int controlX = x + PADDING + 12 + labelWidth;
+        int controlWidth = currentWidth - PADDING * 2 - 16 - labelWidth;
+        
+        // Setting label (truncated if needed)
+        String label = setting.getName();
+        if (textRenderer.getWidth(label) > labelWidth - 4) {
+            while (textRenderer.getWidth(label + "..") > labelWidth - 4 && label.length() > 3) {
+                label = label.substring(0, label.length() - 1);
+            }
+            label += "..";
+        }
+        context.drawTextWithShadow(textRenderer, label, x + PADDING + 12, startY + 2, TEXT_DIM_COLOR);
+        
+        switch (setting.getType()) {
+            case COLOR -> renderColorSetting(context, controlX, startY, controlWidth, (ModuleSetting.ColorSetting) setting, mouseX, mouseY);
+            case ENUM -> renderEnumSetting(context, controlX, startY, controlWidth, (ModuleSetting.EnumSetting<?>) setting, mouseX, mouseY);
+            case BOOLEAN -> renderBooleanSetting(context, controlX, startY, controlWidth, (ModuleSetting.BooleanSetting) setting, mouseX, mouseY);
+            case NUMBER -> renderNumberSetting(context, controlX, startY, controlWidth, (ModuleSetting.NumberSetting) setting, mouseX, mouseY);
+        }
+        
+        return startY + LINE_HEIGHT + 8;
+    }
+    
+    /**
+     * Renders a color setting as a color preview box.
+     */
+    private void renderColorSetting(DrawContext context, int x, int y, int width, 
+                                     ModuleSetting.ColorSetting setting, int mouseX, int mouseY) {
+        int color = setting.getValue();
+        int boxSize = 14;
+        
+        // Color preview box
+        boolean hovered = mouseX >= x && mouseX < x + boxSize && mouseY >= y && mouseY < y + boxSize;
+        
+        // Checkerboard background for transparency
+        for (int i = 0; i < boxSize; i += 4) {
+            for (int j = 0; j < boxSize; j += 4) {
+                int checkColor = ((i + j) / 4) % 2 == 0 ? 0xFFCCCCCC : 0xFFFFFFFF;
+                context.fill(x + i, y + j, Math.min(x + i + 4, x + boxSize), Math.min(y + j + 4, y + boxSize), checkColor);
+            }
+        }
+        
+        // Color overlay
+        context.fill(x, y, x + boxSize, y + boxSize, color);
+        
+        // Border
+        int borderColor = hovered ? 0xFFFFFFFF : 0xFF666666;
+        context.fill(x, y, x + boxSize, y + 1, borderColor);
+        context.fill(x, y + boxSize - 1, x + boxSize, y + boxSize, borderColor);
+        context.fill(x, y, x + 1, y + boxSize, borderColor);
+        context.fill(x + boxSize - 1, y, x + boxSize, y + boxSize, borderColor);
+        
+        // Hex value
+        String hex = String.format("#%08X", color);
+        context.drawTextWithShadow(textRenderer, hex, x + boxSize + 4, y + 3, TEXT_COLOR);
+    }
+    
+    /**
+     * Renders an enum setting as a dropdown-style button.
+     */
+    private void renderEnumSetting(DrawContext context, int x, int y, int width,
+                                    ModuleSetting.EnumSetting<?> setting, int mouseX, int mouseY) {
+        int buttonWidth = Math.min(width, 80);
+        int buttonHeight = 14;
+        
+        boolean hovered = mouseX >= x && mouseX < x + buttonWidth && mouseY >= y && mouseY < y + buttonHeight;
+        
+        // Button background
+        int bgColor = hovered ? 0xFF444444 : 0xFF333333;
+        context.fill(x, y, x + buttonWidth, y + buttonHeight, bgColor);
+        
+        // Border
+        int borderColor = hovered ? ACCENT_COLOR : 0xFF555555;
+        context.fill(x, y, x + buttonWidth, y + 1, borderColor);
+        context.fill(x, y + buttonHeight - 1, x + buttonWidth, y + buttonHeight, borderColor);
+        context.fill(x, y, x + 1, y + buttonHeight, borderColor);
+        context.fill(x + buttonWidth - 1, y, x + buttonWidth, y + buttonHeight, borderColor);
+        
+        // Current value text
+        String valueText = setting.getValue().toString();
+        if (textRenderer.getWidth(valueText) > buttonWidth - 14) {
+            while (textRenderer.getWidth(valueText + "..") > buttonWidth - 14 && valueText.length() > 1) {
+                valueText = valueText.substring(0, valueText.length() - 1);
+            }
+            valueText += "..";
+        }
+        context.drawTextWithShadow(textRenderer, valueText, x + 4, y + 3, TEXT_COLOR);
+        
+        // Dropdown arrow
+        context.drawTextWithShadow(textRenderer, "▼", x + buttonWidth - 10, y + 3, TEXT_DIM_COLOR);
+    }
+    
+    /**
+     * Renders a boolean setting as a toggle.
+     */
+    private void renderBooleanSetting(DrawContext context, int x, int y, int width,
+                                       ModuleSetting.BooleanSetting setting, int mouseX, int mouseY) {
+        int buttonWidth = 36;
+        int buttonHeight = 14;
+        
+        boolean value = setting.getValue();
+        boolean hovered = mouseX >= x && mouseX < x + buttonWidth && mouseY >= y && mouseY < y + buttonHeight;
+        
+        int bgColor = value ? 0xFF227722 : 0xFF772222;
+        int borderColor = value ? 0xFF44AA44 : 0xFFAA4444;
+        if (hovered) {
+            bgColor = value ? 0xFF338833 : 0xFF883333;
+        }
+        
+        context.fill(x, y, x + buttonWidth, y + buttonHeight, bgColor);
+        context.fill(x, y, x + buttonWidth, y + 1, borderColor);
+        context.fill(x, y + buttonHeight - 1, x + buttonWidth, y + buttonHeight, borderColor);
+        context.fill(x, y, x + 1, y + buttonHeight, borderColor);
+        context.fill(x + buttonWidth - 1, y, x + buttonWidth, y + buttonHeight, borderColor);
+        
+        String text = value ? "ON" : "OFF";
+        context.drawCenteredTextWithShadow(textRenderer, Text.literal(text), x + buttonWidth / 2, y + 3, TEXT_COLOR);
+    }
+    
+    /**
+     * Renders a number setting as a text display with +/- buttons.
+     */
+    private void renderNumberSetting(DrawContext context, int x, int y, int width,
+                                      ModuleSetting.NumberSetting setting, int mouseX, int mouseY) {
+        int value = setting.getValue();
+        
+        // Minus button
+        boolean minusHovered = mouseX >= x && mouseX < x + 12 && mouseY >= y && mouseY < y + 14;
+        context.fill(x, y, x + 12, y + 14, minusHovered ? 0xFF444444 : 0xFF333333);
+        context.drawCenteredTextWithShadow(textRenderer, Text.literal("-"), x + 6, y + 3, TEXT_COLOR);
+        
+        // Value display
+        String valueStr = String.valueOf(value);
+        context.drawCenteredTextWithShadow(textRenderer, Text.literal(valueStr), x + 35, y + 3, TEXT_COLOR);
+        
+        // Plus button
+        boolean plusHovered = mouseX >= x + 48 && mouseX < x + 60 && mouseY >= y && mouseY < y + 14;
+        context.fill(x + 48, y, x + 60, y + 14, plusHovered ? 0xFF444444 : 0xFF333333);
+        context.drawCenteredTextWithShadow(textRenderer, Text.literal("+"), x + 54, y + 3, TEXT_COLOR);
     }
 
     private void renderScrollbar(DrawContext context, int x, int contentStartY, int contentHeight) {
@@ -515,7 +689,21 @@ public class EditorSidebar implements Drawable, Element {
         for (GUIModule module : activeModules) {
             boolean expanded = expandedModules.contains(module.getId());
             int widgetCount = module.getWidgetIds().size();
-            int sectionHeight = expanded ? (24 + LINE_HEIGHT + 2 + widgetCount * LINE_HEIGHT + 4 + (LINE_HEIGHT + 2) * 2 + 4) : 24;
+            int settingsCount = module.hasSettings() ? module.getSettings().size() : 0;
+            
+            // Calculate section height matching render logic
+            int sectionHeight = 24;  // Header
+            if (expanded) {
+                sectionHeight += LINE_HEIGHT + 2;  // "Widgets: N"
+                sectionHeight += widgetCount * LINE_HEIGHT + 4;  // Widget list
+                
+                if (settingsCount > 0) {
+                    sectionHeight += LINE_HEIGHT + 4;  // "Settings:" label
+                    sectionHeight += settingsCount * (LINE_HEIGHT + 8);  // Each setting
+                }
+                
+                sectionHeight += (LINE_HEIGHT + 2) * 2 + 4;  // Reset buttons
+            }
 
             if (mouseY >= currentY && mouseY < currentY + sectionHeight) {
                 // Check toggle button
@@ -537,9 +725,29 @@ public class EditorSidebar implements Drawable, Element {
                     return true;
                 }
 
-                // Check reset buttons if expanded
+                // Check settings and reset buttons if expanded
                 if (expanded) {
-                    int resetAreaY = currentY + 24 + LINE_HEIGHT + 2 + widgetCount * LINE_HEIGHT + 4;
+                    int settingY = currentY + 24 + LINE_HEIGHT + 2 + widgetCount * LINE_HEIGHT + 4;
+                    
+                    // Check module settings clicks
+                    if (settingsCount > 0) {
+                        settingY += LINE_HEIGHT + 4;  // "Settings:" label
+                        
+                        int labelWidth = 70;
+                        int controlX = x + PADDING + 12 + labelWidth;
+                        int controlWidth = currentWidth - PADDING * 2 - 16 - labelWidth;
+                        
+                        for (ModuleSetting<?> setting : module.getSettings()) {
+                            if (mouseY >= settingY && mouseY < settingY + LINE_HEIGHT + 8) {
+                                if (handleSettingClick(module, setting, controlX, settingY, controlWidth, (int) mouseX, (int) mouseY)) {
+                                    return true;
+                                }
+                            }
+                            settingY += LINE_HEIGHT + 8;
+                        }
+                    }
+                    
+                    int resetAreaY = settingY;
 
                     // Reset All Positions button
                     int resetPosY = resetAreaY;
@@ -563,6 +771,91 @@ public class EditorSidebar implements Drawable, Element {
         }
 
         return true; // Consume click to prevent interaction with underlying screen
+    }
+    
+    /**
+     * Handles a click on a module setting control.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private boolean handleSettingClick(GUIModule module, ModuleSetting<?> setting, 
+                                        int controlX, int controlY, int controlWidth, int mouseX, int mouseY) {
+        switch (setting.getType()) {
+            case COLOR -> {
+                // Color box click - cycle through some preset colors
+                int boxSize = 14;
+                if (mouseX >= controlX && mouseX < controlX + boxSize && 
+                    mouseY >= controlY && mouseY < controlY + boxSize) {
+                    ModuleSetting.ColorSetting colorSetting = (ModuleSetting.ColorSetting) setting;
+                    int[] presetColors = {
+                        0x8000FF00,  // Green
+                        0x80FF0000,  // Red
+                        0x800000FF,  // Blue
+                        0x80FFFF00,  // Yellow
+                        0x80FF00FF,  // Magenta
+                        0x8000FFFF,  // Cyan
+                        0x80FF8800,  // Orange
+                        0x80FFFFFF,  // White
+                    };
+                    int current = colorSetting.getValue();
+                    int nextIndex = 0;
+                    for (int i = 0; i < presetColors.length; i++) {
+                        if (presetColors[i] == current) {
+                            nextIndex = (i + 1) % presetColors.length;
+                            break;
+                        }
+                    }
+                    module.updateSetting(setting.getId(), presetColors[nextIndex]);
+                    return true;
+                }
+            }
+            case ENUM -> {
+                // Dropdown click - cycle to next enum value
+                int buttonWidth = Math.min(controlWidth, 80);
+                if (mouseX >= controlX && mouseX < controlX + buttonWidth && 
+                    mouseY >= controlY && mouseY < controlY + 14) {
+                    ModuleSetting.EnumSetting enumSetting = (ModuleSetting.EnumSetting) setting;
+                    Enum<?>[] options = enumSetting.getOptions();
+                    Enum<?> current = (Enum<?>) enumSetting.getValue();
+                    int currentIndex = 0;
+                    for (int i = 0; i < options.length; i++) {
+                        if (options[i] == current) {
+                            currentIndex = i;
+                            break;
+                        }
+                    }
+                    int nextIndex = (currentIndex + 1) % options.length;
+                    module.updateSetting(setting.getId(), options[nextIndex]);
+                    return true;
+                }
+            }
+            case BOOLEAN -> {
+                // Toggle click
+                int buttonWidth = 36;
+                if (mouseX >= controlX && mouseX < controlX + buttonWidth && 
+                    mouseY >= controlY && mouseY < controlY + 14) {
+                    ModuleSetting.BooleanSetting boolSetting = (ModuleSetting.BooleanSetting) setting;
+                    module.updateSetting(setting.getId(), !boolSetting.getValue());
+                    return true;
+                }
+            }
+            case NUMBER -> {
+                // Plus/minus buttons
+                ModuleSetting.NumberSetting numberSetting = (ModuleSetting.NumberSetting) setting;
+                // Minus button
+                if (mouseX >= controlX && mouseX < controlX + 12 && 
+                    mouseY >= controlY && mouseY < controlY + 14) {
+                    module.updateSetting(setting.getId(), numberSetting.getValue() - 1);
+                    return true;
+                }
+                // Plus button
+                if (mouseX >= controlX + 48 && mouseX < controlX + 60 && 
+                    mouseY >= controlY && mouseY < controlY + 14) {
+                    module.updateSetting(setting.getId(), numberSetting.getValue() + 1);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override

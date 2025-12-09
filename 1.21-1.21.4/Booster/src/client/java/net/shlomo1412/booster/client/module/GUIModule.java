@@ -1,12 +1,15 @@
 package net.shlomo1412.booster.client.module;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
 /**
  * Base class for GUI-related modules that add widgets to screens.
  * Supports multiple widgets with individual position/size settings.
+ * Also supports custom module settings (colors, enums, etc.).
  */
 public abstract class GUIModule extends Module {
     
@@ -15,6 +18,9 @@ public abstract class GUIModule extends Module {
     
     // Loaded values from config (before defaults are known)
     private final Map<String, int[]> loadedWidgetValues = new HashMap<>();
+    
+    // Module settings (colors, enums, etc.) - LinkedHashMap preserves insertion order
+    private final Map<String, ModuleSetting<?>> moduleSettings = new LinkedHashMap<>();
     
     // Default settings for new widgets
     private final int defaultWidth;
@@ -180,5 +186,65 @@ public abstract class GUIModule extends Module {
     
     public int getDefaultHeight() {
         return defaultHeight;
+    }
+    
+    // ============= Module Settings API =============
+    
+    /**
+     * Registers a module setting.
+     */
+    protected void registerSetting(ModuleSetting<?> setting) {
+        moduleSettings.put(setting.getId(), setting);
+    }
+    
+    /**
+     * Gets a module setting by ID.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> ModuleSetting<T> getSetting(String id) {
+        return (ModuleSetting<T>) moduleSettings.get(id);
+    }
+    
+    /**
+     * Gets all module settings.
+     */
+    public Collection<ModuleSetting<?>> getSettings() {
+        return moduleSettings.values();
+    }
+    
+    /**
+     * Gets all module settings as a map.
+     */
+    public Map<String, ModuleSetting<?>> getAllSettings() {
+        return moduleSettings;
+    }
+    
+    /**
+     * Checks if this module has any custom settings.
+     */
+    public boolean hasSettings() {
+        return !moduleSettings.isEmpty();
+    }
+    
+    /**
+     * Updates a setting value and saves config.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> void updateSetting(String id, T value) {
+        ModuleSetting<T> setting = (ModuleSetting<T>) moduleSettings.get(id);
+        if (setting != null) {
+            setting.setValue(value);
+            ModuleManager.getInstance().saveConfig();
+        }
+    }
+    
+    /**
+     * Resets all settings to defaults.
+     */
+    public void resetAllSettings() {
+        for (ModuleSetting<?> setting : moduleSettings.values()) {
+            setting.reset();
+        }
+        ModuleManager.getInstance().saveConfig();
     }
 }

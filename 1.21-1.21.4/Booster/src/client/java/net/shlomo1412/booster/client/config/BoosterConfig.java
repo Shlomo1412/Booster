@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import net.fabricmc.loader.api.FabricLoader;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.Module;
+import net.shlomo1412.booster.client.module.ModuleSetting;
 import net.shlomo1412.booster.client.module.WidgetSettings;
 
 import java.io.IOException;
@@ -65,8 +66,9 @@ public class BoosterConfig {
             JsonObject moduleData = new JsonObject();
             moduleData.addProperty("enabled", module.isEnabled());
 
-            // Save GUI module per-widget settings
+            // Save GUI module per-widget settings and module settings
             if (module instanceof GUIModule guiModule) {
+                // Save widget settings
                 JsonObject widgetsObject = new JsonObject();
                 
                 for (Map.Entry<String, WidgetSettings> entry : guiModule.getAllWidgetSettings().entrySet()) {
@@ -83,6 +85,17 @@ public class BoosterConfig {
                 }
                 
                 moduleData.add("widgets", widgetsObject);
+                
+                // Save module settings (colors, enums, etc.)
+                if (guiModule.hasSettings()) {
+                    JsonObject moduleSettingsObject = new JsonObject();
+                    
+                    for (ModuleSetting<?> setting : guiModule.getSettings()) {
+                        saveModuleSetting(moduleSettingsObject, setting);
+                    }
+                    
+                    moduleData.add("moduleSettings", moduleSettingsObject);
+                }
             }
 
             modulesObject.add(module.getId(), moduleData);
@@ -95,6 +108,32 @@ public class BoosterConfig {
             Files.writeString(configPath, GSON.toJson(root));
         } catch (IOException e) {
             System.err.println("[Booster] Failed to save config: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Saves a single module setting to JSON.
+     */
+    private void saveModuleSetting(JsonObject parent, ModuleSetting<?> setting) {
+        switch (setting.getType()) {
+            case COLOR -> {
+                ModuleSetting.ColorSetting colorSetting = (ModuleSetting.ColorSetting) setting;
+                parent.addProperty(setting.getId(), colorSetting.getValue());
+            }
+            case ENUM -> {
+                @SuppressWarnings("unchecked")
+                ModuleSetting.EnumSetting<? extends Enum<?>> enumSetting = 
+                    (ModuleSetting.EnumSetting<? extends Enum<?>>) setting;
+                parent.addProperty(setting.getId(), enumSetting.getValue().name());
+            }
+            case NUMBER -> {
+                ModuleSetting.NumberSetting numberSetting = (ModuleSetting.NumberSetting) setting;
+                parent.addProperty(setting.getId(), numberSetting.getValue());
+            }
+            case BOOLEAN -> {
+                ModuleSetting.BooleanSetting boolSetting = (ModuleSetting.BooleanSetting) setting;
+                parent.addProperty(setting.getId(), boolSetting.getValue());
+            }
         }
     }
 
@@ -139,20 +178,32 @@ public class BoosterConfig {
                     loadEnabledState(module, enabled);
                 }
 
-                // Load GUI module per-widget settings
-                if (module instanceof GUIModule guiModule && moduleData.has("widgets")) {
-                    JsonObject widgetsObject = moduleData.getAsJsonObject("widgets");
+                // Load GUI module per-widget settings and module settings
+                if (module instanceof GUIModule guiModule) {
+                    // Load widget settings
+                    if (moduleData.has("widgets")) {
+                        JsonObject widgetsObject = moduleData.getAsJsonObject("widgets");
+                        
+                        for (String widgetId : widgetsObject.keySet()) {
+                            JsonObject widgetData = widgetsObject.getAsJsonObject(widgetId);
+                            
+                            int offsetX = widgetData.has("offsetX") ? widgetData.get("offsetX").getAsInt() : 0;
+                            int offsetY = widgetData.has("offsetY") ? widgetData.get("offsetY").getAsInt() : 0;
+                            int width = widgetData.has("width") ? widgetData.get("width").getAsInt() : guiModule.getDefaultWidth();
+                            int height = widgetData.has("height") ? widgetData.get("height").getAsInt() : guiModule.getDefaultHeight();
+                            
+                            // Load widget settings - actual defaults will be set when createButtons is called
+                            guiModule.loadWidgetSettings(widgetId, offsetX, offsetY, width, height);
+                        }
+                    }
                     
-                    for (String widgetId : widgetsObject.keySet()) {
-                        JsonObject widgetData = widgetsObject.getAsJsonObject(widgetId);
+                    // Load module settings (colors, enums, etc.)
+                    if (moduleData.has("moduleSettings")) {
+                        JsonObject moduleSettingsObject = moduleData.getAsJsonObject("moduleSettings");
                         
-                        int offsetX = widgetData.has("offsetX") ? widgetData.get("offsetX").getAsInt() : 0;
-                        int offsetY = widgetData.has("offsetY") ? widgetData.get("offsetY").getAsInt() : 0;
-                        int width = widgetData.has("width") ? widgetData.get("width").getAsInt() : guiModule.getDefaultWidth();
-                        int height = widgetData.has("height") ? widgetData.get("height").getAsInt() : guiModule.getDefaultHeight();
-                        
-                        // Load widget settings - actual defaults will be set when createButtons is called
-                        guiModule.loadWidgetSettings(widgetId, offsetX, offsetY, width, height);
+                        for (ModuleSetting<?> setting : guiModule.getSettings()) {
+                            loadModuleSetting(moduleSettingsObject, setting);
+                        }
                     }
                 }
             }
@@ -160,6 +211,46 @@ public class BoosterConfig {
             System.err.println("[Booster] Failed to load config: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("[Booster] Failed to parse config: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Loads a single module setting from JSON.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void loadModuleSetting(JsonObject parent, ModuleSetting<?> setting) {
+        if (!parent.has(setting.getId())) {
+            return;
+        }
+        
+        try {
+            switch (setting.getType()) {
+                case COLOR -> {
+                    ModuleSetting.ColorSetting colorSetting = (ModuleSetting.ColorSetting) setting;
+                    colorSetting.setValue(parent.get(setting.getId()).getAsInt());
+                }
+                case ENUM -> {
+                    ModuleSetting.EnumSetting enumSetting = (ModuleSetting.EnumSetting) setting;
+                    String enumName = parent.get(setting.getId()).getAsString();
+                    try {
+                        Enum<?> enumValue = Enum.valueOf(enumSetting.getEnumClass(), enumName);
+                        enumSetting.setValue(enumValue);
+                    } catch (IllegalArgumentException e) {
+                        // Keep default if enum value not found
+                    }
+                }
+                case NUMBER -> {
+                    ModuleSetting.NumberSetting numberSetting = (ModuleSetting.NumberSetting) setting;
+                    numberSetting.setValue(parent.get(setting.getId()).getAsInt());
+                }
+                case BOOLEAN -> {
+                    ModuleSetting.BooleanSetting boolSetting = (ModuleSetting.BooleanSetting) setting;
+                    boolSetting.setValue(parent.get(setting.getId()).getAsBoolean());
+                }
+            }
+        } catch (Exception e) {
+            // Keep default value on parse error
+            System.err.println("[Booster] Failed to load setting '" + setting.getId() + "': " + e.getMessage());
         }
     }
 

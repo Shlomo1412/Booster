@@ -7,6 +7,7 @@ import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.Selectable;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.shlomo1412.booster.client.editor.DraggableWidget;
@@ -18,6 +19,8 @@ import net.shlomo1412.booster.client.editor.widget.EditorGuide;
 import net.shlomo1412.booster.client.editor.widget.EditorSidebar;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.ModuleManager;
+import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
+import net.shlomo1412.booster.client.module.modules.SearchBarModule;
 import net.shlomo1412.booster.client.module.modules.StealStoreModule;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -68,6 +71,16 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     
     @Unique
     private boolean booster$hasBoosterContent = false;
+    
+    // Module references for rendering
+    @Unique
+    private SearchBarModule booster$searchBarModule;
+    
+    @Unique
+    private InventoryProgressModule booster$inventoryProgressModule;
+    
+    @Unique
+    private net.shlomo1412.booster.client.widget.BoosterProgressBar booster$progressBarWidget;
 
     // Required for extending Screen
     protected HandledScreenMixin() {
@@ -88,11 +101,16 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         editor.setCurrentScreen(this);
         editor.clearDraggableWidgets();
         booster$hasBoosterContent = false;
+        booster$searchBarModule = null;
+        booster$inventoryProgressModule = null;
+        booster$progressBarWidget = null;
 
         // Only add Booster content to container screens
         if (!(handler instanceof GenericContainerScreenHandler)) {
             return;
         }
+        
+        HandledScreen<?> self = (HandledScreen<?>) (Object) this;
 
         // Add Steal/Store buttons
         StealStoreModule stealStoreModule = ModuleManager.getInstance().getModule(StealStoreModule.class);
@@ -100,7 +118,6 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
             booster$hasBoosterContent = true;
             
             if (stealStoreModule.isEnabled()) {
-                HandledScreen<?> self = (HandledScreen<?>) (Object) this;
                 // Pass right edge of container as anchor for buttons
                 stealStoreModule.createButtons(
                     self,
@@ -108,6 +125,34 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                     y,
                     button -> this.addDrawableChild(button)
                 );
+            }
+        }
+        
+        // Add Search Bar
+        booster$searchBarModule = ModuleManager.getInstance().getModule(SearchBarModule.class);
+        if (booster$searchBarModule != null) {
+            booster$hasBoosterContent = true;
+            
+            if (booster$searchBarModule.isEnabled()) {
+                booster$searchBarModule.createSearchBar(
+                    self,
+                    x,  // Left edge of container
+                    y,
+                    backgroundWidth,  // Container width for smart positioning
+                    this.height,  // Pass screen height for clamping
+                    field -> this.addDrawableChild(field)
+                );
+            }
+        }
+        
+        // Create Inventory Progress Bar widget
+        booster$inventoryProgressModule = ModuleManager.getInstance().getModule(InventoryProgressModule.class);
+        if (booster$inventoryProgressModule != null) {
+            booster$hasBoosterContent = true;
+            
+            if (booster$inventoryProgressModule.isEnabled()) {
+                booster$progressBarWidget = booster$inventoryProgressModule.createProgressBar(self, x, y);
+                // Note: We don't add it as a drawable child since it's rendered separately
             }
         }
 
@@ -137,12 +182,22 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         EditorModeManager editor = EditorModeManager.getInstance();
         
         if (editor.isEditorModeActive()) {
-            // Create sidebar
+            // Create sidebar with all GUI modules
             List<GUIModule> activeModules = new ArrayList<>();
             
             StealStoreModule stealStore = ModuleManager.getInstance().getModule(StealStoreModule.class);
             if (stealStore != null) {
                 activeModules.add(stealStore);
+            }
+            
+            SearchBarModule searchBar = ModuleManager.getInstance().getModule(SearchBarModule.class);
+            if (searchBar != null) {
+                activeModules.add(searchBar);
+            }
+            
+            InventoryProgressModule inventoryProgress = ModuleManager.getInstance().getModule(InventoryProgressModule.class);
+            if (inventoryProgress != null) {
+                activeModules.add(inventoryProgress);
             }
             
             ScreenInfo screenInfo = new ScreenInfo(this, x, y, backgroundWidth, backgroundHeight);
@@ -175,10 +230,34 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     }
 
     /**
-     * Render editor overlay LAST so it appears above all other elements.
+     * Render search highlights and progress bar after slots are rendered.
      */
     @Inject(method = "render", at = @At("TAIL"))
     private void booster$onRender(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        // Render inventory progress bar widget (if enabled)
+        if (booster$progressBarWidget != null && booster$inventoryProgressModule != null && booster$inventoryProgressModule.isEnabled()) {
+            booster$progressBarWidget.render(context, mouseX, mouseY, delta);
+        }
+        
+        // Render search highlights (if search is active)
+        if (booster$searchBarModule != null && booster$searchBarModule.isEnabled() && booster$searchBarModule.isSearchActive()) {
+            // First dim non-matching items
+            booster$searchBarModule.renderSlotDimming(context, x, y);
+            // Then highlight matching items
+            booster$searchBarModule.renderHighlights(context, x, y);
+            
+            // Show match count near search bar
+            var searchField = booster$searchBarModule.getSearchField();
+            if (searchField != null) {
+                int matchCount = booster$searchBarModule.getMatchCount();
+                String matchText = matchCount + " match" + (matchCount != 1 ? "es" : "");
+                int textX = searchField.getX() + searchField.getWidth() + 4;
+                int textY = searchField.getY() + 5;
+                context.drawTextWithShadow(this.textRenderer, matchText, textX, textY, 
+                    matchCount > 0 ? 0xFF44FF44 : 0xFFFF4444);
+            }
+        }
+        
         EditorModeManager editor = EditorModeManager.getInstance();
         
         // Render editor UI on top of everything using elevated z-level
@@ -342,5 +421,7 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     private void booster$onClose(CallbackInfo ci) {
         EditorModeManager.getInstance().reset();
         booster$editorSidebar = null;
+        booster$searchBarModule = null;
+        booster$inventoryProgressModule = null;
     }
 }

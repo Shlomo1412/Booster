@@ -245,8 +245,9 @@ public class EditorModeManager {
         }
 
         // Clamp size
-        newWidth = Math.max(DraggableWidget.MIN_SIZE, Math.min(DraggableWidget.MAX_SIZE, newWidth));
-        newHeight = Math.max(DraggableWidget.MIN_SIZE, Math.min(DraggableWidget.MAX_SIZE, newHeight));
+        // Only enforce minimum size - no maximum limit to allow user customization
+        newWidth = Math.max(DraggableWidget.MIN_SIZE, newWidth);
+        newHeight = Math.max(DraggableWidget.MIN_SIZE, newHeight);
 
         // Adjust position if resizing from left or top
         if (resizeEdge == DraggableWidget.ResizeEdge.LEFT || 
