@@ -56,8 +56,16 @@ public class SearchBarModule extends GUIModule {
         registerSetting(highlightColor);
     }
     
+    // Track if we're in compact mode (moved to side due to space constraints)
+    private boolean compactMode = false;
+    
     /**
      * Creates the search bar widget for a container screen.
+     * 
+     * Adaptive positioning logic:
+     * - On smaller UIs with space above: use user preferences
+     * - When no space above container: move to right side, use compact mode
+     * - Compact mode: shorter placeholder, match count hidden
      * 
      * @param screen The container screen
      * @param anchorX Left edge of container
@@ -70,36 +78,69 @@ public class SearchBarModule extends GUIModule {
                                  Consumer<BoosterSearchField> addDrawableChild) {
         this.currentScreen = screen;
         
-        // Get widget settings - default: centered above container
+        // Get screen dimensions
+        int screenWidth = screen.width;
+        
+        // Get widget settings - default: above container, centered
         WidgetSettings settings = getWidgetSettings(SEARCH_WIDGET_ID, 0, -22);
         
+        // Always use user's saved size
+        int width = settings.getWidth();
+        int height = settings.getHeight();
+        
+        // Calculate position based on user's saved offsets
         int searchX = anchorX + settings.getOffsetX();
         int searchY = anchorY + settings.getOffsetY();
         
-        // Check if there's not enough space above container (e.g., double chest)
-        // Minimum space needed: search bar height + some padding
-        int minSpaceNeeded = settings.getHeight() + 4;
-        if (searchY < minSpaceNeeded && settings.getOffsetY() < 0) {
-            // Move search bar to the left of the container, but offset to avoid progress bar
-            // Progress bar is typically at -12 offset, so place search bar further left
-            searchX = anchorX - settings.getWidth() - 20;  // 20px gap to clear progress bar
-            searchY = anchorY + 4;  // Small offset from top
+        // Check if there's enough space above the container for user's preferred position
+        // Minimum space needed: widget height + 4px padding
+        int minSpaceAbove = height + 4;
+        boolean userWantsAbove = settings.getOffsetY() < 0;  // Negative offset = above container
+        boolean noSpaceAbove = searchY < minSpaceAbove && userWantsAbove;
+        
+        if (noSpaceAbove) {
+            // No space above - switch to compact mode and move to right side
+            compactMode = true;
+            searchX = anchorX + containerWidth + 4;  // Right side of container
+            searchY = anchorY + 4;  // Align near top of container
             
-            // If that would go off-screen to the left, try the right side
+            // If right side would go off-screen, try left side
+            if (searchX + width > screenWidth - 2) {
+                searchX = anchorX - width - 4;
+            }
+            // If left side also off-screen, just clamp to screen
             if (searchX < 2) {
-                searchX = anchorX + containerWidth + 4;
+                searchX = 2;
+            }
+        } else {
+            // Enough space - use normal mode with user preferences
+            compactMode = false;
+            
+            // Responsive clamping: keep widget fully on-screen
+            if (searchX < 2) {
+                searchX = 2;
+            } else if (searchX + width > screenWidth - 2) {
+                searchX = screenWidth - width - 2;
+            }
+            
+            if (searchY < 2) {
+                searchY = 2;
+            } else if (searchY + height > screenHeight - 2) {
+                searchY = screenHeight - height - 2;
             }
         }
         
-        // Final clamp to ensure visibility
-        searchY = Math.max(2, searchY);
-        
         searchField = new BoosterSearchField(
             searchX, searchY,
-            settings.getWidth(), settings.getHeight(),
+            width, height,
             Text.literal("Search...")
         );
-        searchField.setPlaceholder(Text.literal("Search items...").styled(s -> s.withColor(0x666666)));
+        
+        // Use shorter placeholder in compact mode or when width is small
+        boolean useShortPlaceholder = compactMode || width < 100;
+        String placeholderText = useShortPlaceholder ? "Search..." : "Search items...";
+        searchField.setPlaceholder(Text.literal(placeholderText).styled(s -> s.withColor(0x666666)));
+        
         searchField.setMaxLength(50);
         searchField.setDrawsBackground(true);
         searchField.setChangedListener(this::onSearchChanged);
@@ -109,6 +150,29 @@ public class SearchBarModule extends GUIModule {
         searchField.setEditorInfo(this, SEARCH_WIDGET_ID, "Search Bar", anchorX, anchorY);
         
         addDrawableChild.accept(searchField);
+    }
+    
+    /**
+     * @return true if the search bar is in compact mode (limited space)
+     */
+    public boolean isCompactMode() {
+        return compactMode;
+    }
+    
+    /**
+     * @return true if there's enough space to show the match count label
+     */
+    public boolean shouldShowMatchCount() {
+        if (searchField == null || currentScreen == null) {
+            return false;
+        }
+        // Don't show match count in compact mode
+        if (compactMode) {
+            return false;
+        }
+        // Check if there's enough space to the right of the search bar
+        int spaceAfterSearchBar = currentScreen.width - (searchField.getX() + searchField.getWidth());
+        return spaceAfterSearchBar > 60;  // Need at least 60px for "X matches" text
     }
     
     /**

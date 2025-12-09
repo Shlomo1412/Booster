@@ -95,17 +95,42 @@ public class InventoryProgressModule extends GUIModule {
     /**
      * Creates the progress bar widget for a container screen.
      * Returns the widget so it can be added to the screen.
+     * 
+     * The positioning is responsive yet respects user preferences:
+     * - User's saved width/height are ALWAYS used
+     * - User's saved offsets are applied relative to container
+     * - If the resulting position would be off-screen, it's clamped to stay visible
      */
     public BoosterProgressBar createProgressBar(HandledScreen<?> screen, int anchorX, int anchorY) {
         this.currentScreen = screen;
         
+        // Get screen dimensions
+        int screenWidth = screen.width;
+        int screenHeight = screen.height;
+        
         // Get widget settings - default position to the left of the container
         WidgetSettings settings = getWidgetSettings(PROGRESS_WIDGET_ID, -12, 0);
         
-        this.currentX = anchorX + settings.getOffsetX();
-        this.currentY = anchorY + settings.getOffsetY();
+        // Always use user's saved size
         this.currentWidth = settings.getWidth();
         this.currentHeight = settings.getHeight();
+        
+        // Calculate position based on user's saved offsets
+        this.currentX = anchorX + settings.getOffsetX();
+        this.currentY = anchorY + settings.getOffsetY();
+        
+        // Responsive clamping: keep widget fully on-screen
+        if (currentX < 2) {
+            currentX = 2;
+        } else if (currentX + currentWidth > screenWidth - 2) {
+            currentX = screenWidth - currentWidth - 2;
+        }
+        
+        if (currentY < 2) {
+            currentY = 2;
+        } else if (currentY + currentHeight > screenHeight - 2) {
+            currentY = screenHeight - currentHeight - 2;
+        }
         
         // Create the draggable widget
         progressBarWidget = new BoosterProgressBar(

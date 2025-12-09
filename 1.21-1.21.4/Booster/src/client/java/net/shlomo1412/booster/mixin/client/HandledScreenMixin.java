@@ -246,15 +246,17 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
             // Then highlight matching items
             booster$searchBarModule.renderHighlights(context, x, y);
             
-            // Show match count near search bar
-            var searchField = booster$searchBarModule.getSearchField();
-            if (searchField != null) {
-                int matchCount = booster$searchBarModule.getMatchCount();
-                String matchText = matchCount + " match" + (matchCount != 1 ? "es" : "");
-                int textX = searchField.getX() + searchField.getWidth() + 4;
-                int textY = searchField.getY() + 5;
-                context.drawTextWithShadow(this.textRenderer, matchText, textX, textY, 
-                    matchCount > 0 ? 0xFF44FF44 : 0xFFFF4444);
+            // Show match count near search bar (only if there's enough space)
+            if (booster$searchBarModule.shouldShowMatchCount()) {
+                var searchField = booster$searchBarModule.getSearchField();
+                if (searchField != null) {
+                    int matchCount = booster$searchBarModule.getMatchCount();
+                    String matchText = matchCount + " match" + (matchCount != 1 ? "es" : "");
+                    int textX = searchField.getX() + searchField.getWidth() + 4;
+                    int textY = searchField.getY() + 5;
+                    context.drawTextWithShadow(this.textRenderer, matchText, textX, textY, 
+                        matchCount > 0 ? 0xFF44FF44 : 0xFFFF4444);
+                }
             }
         }
         
