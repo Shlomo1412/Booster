@@ -28,10 +28,20 @@ public class BoosterConfig {
     
     // Track if editor guide has been shown
     private boolean editorGuideShown = false;
+    
+    // Last server tracking
+    private String lastServerName = null;
+    private String lastServerAddress = null;
+    
+    // Last world tracking
+    private String lastWorldName = null;
+    private String lastWorldDisplayName = null;
 
     public BoosterConfig() {
         this.configPath = FabricLoader.getInstance().getConfigDir().resolve(CONFIG_FILE_NAME);
     }
+    
+    // ==================== Editor Guide ====================
     
     /**
      * @return true if the editor guide has been shown before
@@ -46,6 +56,42 @@ public class BoosterConfig {
     public void markEditorGuideShown() {
         this.editorGuideShown = true;
     }
+    
+    // ==================== Last Server ====================
+    
+    public String getLastServerName() {
+        return lastServerName;
+    }
+    
+    public void setLastServerName(String name) {
+        this.lastServerName = name;
+    }
+    
+    public String getLastServerAddress() {
+        return lastServerAddress;
+    }
+    
+    public void setLastServerAddress(String address) {
+        this.lastServerAddress = address;
+    }
+    
+    // ==================== Last World ====================
+    
+    public String getLastWorldName() {
+        return lastWorldName;
+    }
+    
+    public void setLastWorldName(String name) {
+        this.lastWorldName = name;
+    }
+    
+    public String getLastWorldDisplayName() {
+        return lastWorldDisplayName;
+    }
+    
+    public void setLastWorldDisplayName(String displayName) {
+        this.lastWorldDisplayName = displayName;
+    }
 
     /**
      * Saves all module configurations to the config file.
@@ -58,6 +104,15 @@ public class BoosterConfig {
         // Save general settings
         JsonObject settings = new JsonObject();
         settings.addProperty("editorGuideShown", editorGuideShown);
+        
+        // Save last server
+        if (lastServerName != null) settings.addProperty("lastServerName", lastServerName);
+        if (lastServerAddress != null) settings.addProperty("lastServerAddress", lastServerAddress);
+        
+        // Save last world
+        if (lastWorldName != null) settings.addProperty("lastWorldName", lastWorldName);
+        if (lastWorldDisplayName != null) settings.addProperty("lastWorldDisplayName", lastWorldDisplayName);
+        
         root.add("settings", settings);
         
         JsonObject modulesObject = new JsonObject();
@@ -156,6 +211,22 @@ public class BoosterConfig {
                 JsonObject settings = root.getAsJsonObject("settings");
                 if (settings.has("editorGuideShown")) {
                     editorGuideShown = settings.get("editorGuideShown").getAsBoolean();
+                }
+                
+                // Load last server
+                if (settings.has("lastServerName")) {
+                    lastServerName = settings.get("lastServerName").getAsString();
+                }
+                if (settings.has("lastServerAddress")) {
+                    lastServerAddress = settings.get("lastServerAddress").getAsString();
+                }
+                
+                // Load last world
+                if (settings.has("lastWorldName")) {
+                    lastWorldName = settings.get("lastWorldName").getAsString();
+                }
+                if (settings.has("lastWorldDisplayName")) {
+                    lastWorldDisplayName = settings.get("lastWorldDisplayName").getAsString();
                 }
             }
 

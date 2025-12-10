@@ -2,7 +2,13 @@ package net.shlomo1412.booster.client;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.shlomo1412.booster.client.module.ModuleManager;
+import net.shlomo1412.booster.client.module.modules.CopyIPModule;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
+import net.shlomo1412.booster.client.module.modules.LastServerModule;
+import net.shlomo1412.booster.client.module.modules.LastWorldModule;
+import net.shlomo1412.booster.client.module.modules.SaveQuitGameModule;
+import net.shlomo1412.booster.client.module.modules.SaveQuitToServersModule;
+import net.shlomo1412.booster.client.module.modules.SaveQuitToWorldsModule;
 import net.shlomo1412.booster.client.module.modules.SearchBarModule;
 import net.shlomo1412.booster.client.module.modules.SortContainerModule;
 import net.shlomo1412.booster.client.module.modules.SortInventoryModule;
@@ -35,12 +41,24 @@ public class BoosterClient implements ClientModInitializer {
     private void registerModules() {
         ModuleManager manager = ModuleManager.getInstance();
         
-        // GUI Modules
+        // GUI Modules - Inventory Screens
         manager.register(new StealStoreModule());
         manager.register(new SearchBarModule());
         manager.register(new InventoryProgressModule());
         manager.register(new SortInventoryModule());
         manager.register(new SortContainerModule());
+        
+        // Title Screen Modules
+        manager.register(new LastServerModule());
+        manager.register(new LastWorldModule());
+        
+        // Multiplayer Screen Modules
+        manager.register(new CopyIPModule());
+        
+        // Pause Menu Modules
+        manager.register(new SaveQuitGameModule());
+        manager.register(new SaveQuitToWorldsModule());
+        manager.register(new SaveQuitToServersModule());
         
         // Add more modules here as they are created
     }

@@ -4,7 +4,10 @@
   "package": "net.shlomo1412.booster.mixin.client",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "HandledScreenMixin"
+    "HandledScreenMixin",
+    "TitleScreenMixin",
+    "MultiplayerScreenMixin",
+    "GameMenuScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1
