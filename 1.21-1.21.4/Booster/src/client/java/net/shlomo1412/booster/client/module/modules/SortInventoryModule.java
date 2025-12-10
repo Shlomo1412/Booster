@@ -69,26 +69,31 @@ public class SortInventoryModule extends GUIModule {
      * @param screen The screen to add the button to
      * @param anchorX The anchor X position (right edge of container)
      * @param anchorY The anchor Y position (top of container)
+     * @param backgroundHeight The height of the container background (used to calculate inventory section)
      * @param isContainerScreen Whether this is a container screen (vs player inventory)
      * @param addDrawableChild Callback to add the button
      */
-    public void createButton(HandledScreen<?> screen, int anchorX, int anchorY,
+    public void createButton(HandledScreen<?> screen, int anchorX, int anchorY, int backgroundHeight,
                              boolean isContainerScreen, Consumer<SortButton> addDrawableChild) {
         this.onContainerScreen = isContainerScreen;
         
         // Use different widget ID based on screen type
         String widgetId = isContainerScreen ? SORT_INV_CONTAINER_WIDGET_ID : SORT_INV_WIDGET_ID;
         
-        // Get per-widget settings with different defaults based on screen type
-        // On container: position below Sort Container button
-        // On inventory: position at top-right of inventory area
+        // Calculate the base Y offset to position at the inventory section line
+        // For containers: inventory section is at backgroundHeight - 83 from container top
+        // For player inventory: position at top (offset 0)
+        int inventorySectionOffset = isContainerScreen ? (backgroundHeight - 83) : 0;
+        
+        // Get per-widget settings - default X offset and Y offset (relative to inventory section)
         int defaultOffsetX = isContainerScreen ? 4 : -24;
-        int defaultOffsetY = isContainerScreen ? 66 : 0;
+        int defaultOffsetY = 0;  // User's adjustment relative to inventory section
         
         WidgetSettings settings = getWidgetSettings(widgetId, defaultOffsetX, defaultOffsetY);
         
+        // Calculate button position: anchor + inventory section offset + user's saved offset
         int buttonX = anchorX + settings.getOffsetX();
-        int buttonY = anchorY + settings.getOffsetY();
+        int buttonY = anchorY + inventorySectionOffset + settings.getOffsetY();
         
         sortButton = new SortButton(
             buttonX, buttonY,
@@ -100,8 +105,10 @@ public class SortInventoryModule extends GUIModule {
             this::onModeChanged
         );
         
-        String displayName = isContainerScreen ? "Sort Inventory (Container)" : "Sort Inventory";
-        sortButton.setEditorInfo(this, widgetId, displayName, anchorX, anchorY);
+        // Set editor info with the inventory section as the anchor for dragging
+        // This ensures the saved offset is relative to the inventory section, not container top
+        int editorAnchorY = anchorY + inventorySectionOffset;
+        sortButton.setEditorInfo(this, widgetId, "Sort Inventory", anchorX, editorAnchorY);
         
         addDrawableChild.accept(sortButton);
     }

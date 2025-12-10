@@ -198,8 +198,9 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                 booster$sortInventoryModule.createButton(
                     self,
                     x + backgroundWidth,  // Right edge of container/inventory
-                    y,
-                    isContainerScreen,  // Different position for container vs inventory
+                    y,                    // Use consistent anchor (container top)
+                    backgroundHeight,     // Pass height so module can calculate inventory section
+                    isContainerScreen,    // Different position for container vs inventory
                     button -> this.addDrawableChild(button)
                 );
             }
