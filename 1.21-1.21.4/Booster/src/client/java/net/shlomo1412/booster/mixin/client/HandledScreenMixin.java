@@ -9,6 +9,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.screen.GenericContainerScreenHandler;
+import net.minecraft.screen.PlayerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.shlomo1412.booster.client.editor.DraggableWidget;
 import net.shlomo1412.booster.client.editor.EditorModeManager;
@@ -115,58 +116,80 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         booster$sortContainerModule = null;
         booster$progressBarWidget = null;
 
-        // Only add Booster content to container screens
-        if (!(handler instanceof GenericContainerScreenHandler)) {
+        // Determine screen type
+        boolean isContainerScreen = handler instanceof GenericContainerScreenHandler;
+        boolean isPlayerInventory = handler instanceof PlayerScreenHandler;
+        
+        // Only process screens we support
+        if (!isContainerScreen && !isPlayerInventory) {
             return;
         }
         
         HandledScreen<?> self = (HandledScreen<?>) (Object) this;
 
-        // Add Steal/Store buttons
-        StealStoreModule stealStoreModule = ModuleManager.getInstance().getModule(StealStoreModule.class);
-        if (stealStoreModule != null) {
-            booster$hasBoosterContent = true;
+        // Container-only modules (Steal/Store, Search Bar, Inventory Progress, Sort Container)
+        if (isContainerScreen) {
+            // Add Steal/Store buttons
+            StealStoreModule stealStoreModule = ModuleManager.getInstance().getModule(StealStoreModule.class);
+            if (stealStoreModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (stealStoreModule.isEnabled()) {
+                    // Pass right edge of container as anchor for buttons
+                    stealStoreModule.createButtons(
+                        self,
+                        x + backgroundWidth,  // Right edge of container
+                        y,
+                        button -> this.addDrawableChild(button)
+                    );
+                }
+            }
             
-            if (stealStoreModule.isEnabled()) {
-                // Pass right edge of container as anchor for buttons
-                stealStoreModule.createButtons(
-                    self,
-                    x + backgroundWidth,  // Right edge of container
-                    y,
-                    button -> this.addDrawableChild(button)
-                );
+            // Add Search Bar
+            booster$searchBarModule = ModuleManager.getInstance().getModule(SearchBarModule.class);
+            if (booster$searchBarModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$searchBarModule.isEnabled()) {
+                    booster$searchBarModule.createSearchBar(
+                        self,
+                        x,  // Left edge of container
+                        y,
+                        backgroundWidth,  // Container width for smart positioning
+                        this.height,  // Pass screen height for clamping
+                        field -> this.addDrawableChild(field)
+                    );
+                }
+            }
+            
+            // Create Inventory Progress Bar widget
+            booster$inventoryProgressModule = ModuleManager.getInstance().getModule(InventoryProgressModule.class);
+            if (booster$inventoryProgressModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$inventoryProgressModule.isEnabled()) {
+                    booster$progressBarWidget = booster$inventoryProgressModule.createProgressBar(self, x, y);
+                    // Note: We don't add it as a drawable child since it's rendered separately
+                }
+            }
+            
+            // Add Sort Container button (sorts container contents) - container only
+            booster$sortContainerModule = ModuleManager.getInstance().getModule(SortContainerModule.class);
+            if (booster$sortContainerModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$sortContainerModule.isEnabled()) {
+                    booster$sortContainerModule.createButton(
+                        self,
+                        x + backgroundWidth,  // Right edge of container
+                        y,
+                        button -> this.addDrawableChild(button)
+                    );
+                }
             }
         }
         
-        // Add Search Bar
-        booster$searchBarModule = ModuleManager.getInstance().getModule(SearchBarModule.class);
-        if (booster$searchBarModule != null) {
-            booster$hasBoosterContent = true;
-            
-            if (booster$searchBarModule.isEnabled()) {
-                booster$searchBarModule.createSearchBar(
-                    self,
-                    x,  // Left edge of container
-                    y,
-                    backgroundWidth,  // Container width for smart positioning
-                    this.height,  // Pass screen height for clamping
-                    field -> this.addDrawableChild(field)
-                );
-            }
-        }
-        
-        // Create Inventory Progress Bar widget
-        booster$inventoryProgressModule = ModuleManager.getInstance().getModule(InventoryProgressModule.class);
-        if (booster$inventoryProgressModule != null) {
-            booster$hasBoosterContent = true;
-            
-            if (booster$inventoryProgressModule.isEnabled()) {
-                booster$progressBarWidget = booster$inventoryProgressModule.createProgressBar(self, x, y);
-                // Note: We don't add it as a drawable child since it's rendered separately
-            }
-        }
-        
-        // Add Sort Inventory button (sorts player inventory)
+        // Add Sort Inventory button (works on BOTH container screens and player inventory)
         booster$sortInventoryModule = ModuleManager.getInstance().getModule(SortInventoryModule.class);
         if (booster$sortInventoryModule != null) {
             booster$hasBoosterContent = true;
@@ -174,24 +197,9 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
             if (booster$sortInventoryModule.isEnabled()) {
                 booster$sortInventoryModule.createButton(
                     self,
-                    x + backgroundWidth,  // Right edge of container
+                    x + backgroundWidth,  // Right edge of container/inventory
                     y,
-                    true,  // isContainerScreen = true
-                    button -> this.addDrawableChild(button)
-                );
-            }
-        }
-        
-        // Add Sort Container button (sorts container contents)
-        booster$sortContainerModule = ModuleManager.getInstance().getModule(SortContainerModule.class);
-        if (booster$sortContainerModule != null) {
-            booster$hasBoosterContent = true;
-            
-            if (booster$sortContainerModule.isEnabled()) {
-                booster$sortContainerModule.createButton(
-                    self,
-                    x + backgroundWidth,  // Right edge of container
-                    y,
+                    isContainerScreen,  // Different position for container vs inventory
                     button -> this.addDrawableChild(button)
                 );
             }
@@ -223,32 +231,39 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         EditorModeManager editor = EditorModeManager.getInstance();
         
         if (editor.isEditorModeActive()) {
-            // Create sidebar with all GUI modules
+            // Determine screen type
+            boolean isContainerScreen = handler instanceof GenericContainerScreenHandler;
+            
+            // Create sidebar with modules appropriate for this screen type
             List<GUIModule> activeModules = new ArrayList<>();
             
-            StealStoreModule stealStore = ModuleManager.getInstance().getModule(StealStoreModule.class);
-            if (stealStore != null) {
-                activeModules.add(stealStore);
+            // Container-only modules
+            if (isContainerScreen) {
+                StealStoreModule stealStore = ModuleManager.getInstance().getModule(StealStoreModule.class);
+                if (stealStore != null) {
+                    activeModules.add(stealStore);
+                }
+                
+                SearchBarModule searchBar = ModuleManager.getInstance().getModule(SearchBarModule.class);
+                if (searchBar != null) {
+                    activeModules.add(searchBar);
+                }
+                
+                InventoryProgressModule inventoryProgress = ModuleManager.getInstance().getModule(InventoryProgressModule.class);
+                if (inventoryProgress != null) {
+                    activeModules.add(inventoryProgress);
+                }
+                
+                SortContainerModule sortContainer = ModuleManager.getInstance().getModule(SortContainerModule.class);
+                if (sortContainer != null) {
+                    activeModules.add(sortContainer);
+                }
             }
             
-            SearchBarModule searchBar = ModuleManager.getInstance().getModule(SearchBarModule.class);
-            if (searchBar != null) {
-                activeModules.add(searchBar);
-            }
-            
-            InventoryProgressModule inventoryProgress = ModuleManager.getInstance().getModule(InventoryProgressModule.class);
-            if (inventoryProgress != null) {
-                activeModules.add(inventoryProgress);
-            }
-            
+            // Sort Inventory works on both screen types
             SortInventoryModule sortInventory = ModuleManager.getInstance().getModule(SortInventoryModule.class);
             if (sortInventory != null) {
                 activeModules.add(sortInventory);
-            }
-            
-            SortContainerModule sortContainer = ModuleManager.getInstance().getModule(SortContainerModule.class);
-            if (sortContainer != null) {
-                activeModules.add(sortContainer);
             }
             
             ScreenInfo screenInfo = new ScreenInfo(this, x, y, backgroundWidth, backgroundHeight);

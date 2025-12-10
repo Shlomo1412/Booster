@@ -80,10 +80,10 @@ public class SortInventoryModule extends GUIModule {
         String widgetId = isContainerScreen ? SORT_INV_CONTAINER_WIDGET_ID : SORT_INV_WIDGET_ID;
         
         // Get per-widget settings with different defaults based on screen type
-        // On container: position near Steal/Store buttons
+        // On container: position below Sort Container button
         // On inventory: position at top-right of inventory area
         int defaultOffsetX = isContainerScreen ? 4 : -24;
-        int defaultOffsetY = isContainerScreen ? 44 : 0;
+        int defaultOffsetY = isContainerScreen ? 66 : 0;
         
         WidgetSettings settings = getWidgetSettings(widgetId, defaultOffsetX, defaultOffsetY);
         

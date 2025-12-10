@@ -63,8 +63,8 @@ public class SortContainerModule extends GUIModule {
     public void createButton(HandledScreen<?> screen, int anchorX, int anchorY,
                              Consumer<SortButton> addDrawableChild) {
         // Get per-widget settings
-        // Default: Position below steal/store/sort-inventory buttons
-        WidgetSettings settings = getWidgetSettings(SORT_CONTAINER_WIDGET_ID, 4, 66);
+        // Default: Position below steal/store buttons, above sort-inventory
+        WidgetSettings settings = getWidgetSettings(SORT_CONTAINER_WIDGET_ID, 4, 44);
         
         int buttonX = anchorX + settings.getOffsetX();
         int buttonY = anchorY + settings.getOffsetY();
