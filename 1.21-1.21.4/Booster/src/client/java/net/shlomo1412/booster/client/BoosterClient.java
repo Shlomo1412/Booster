@@ -3,7 +3,9 @@ package net.shlomo1412.booster.client;
 import net.fabricmc.api.ClientModInitializer;
 import net.shlomo1412.booster.client.editor.ScreenEditorHandler;
 import net.shlomo1412.booster.client.module.ModuleManager;
+import net.shlomo1412.booster.client.module.modules.ClearGridModule;
 import net.shlomo1412.booster.client.module.modules.CopyIPModule;
+import net.shlomo1412.booster.client.module.modules.InfiniteCraftModule;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
 import net.shlomo1412.booster.client.module.modules.LastServerModule;
 import net.shlomo1412.booster.client.module.modules.LastWorldModule;
@@ -51,6 +53,10 @@ public class BoosterClient implements ClientModInitializer {
         manager.register(new InventoryProgressModule());
         manager.register(new SortInventoryModule());
         manager.register(new SortContainerModule());
+        
+        // GUI Modules - Crafting Table Screen
+        manager.register(new ClearGridModule());
+        manager.register(new InfiniteCraftModule());
         
         // Title Screen Modules
         manager.register(new LastServerModule());

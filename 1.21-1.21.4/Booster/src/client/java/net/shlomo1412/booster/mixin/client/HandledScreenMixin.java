@@ -8,6 +8,7 @@ import net.minecraft.client.gui.Selectable;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.screen.CraftingScreenHandler;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.PlayerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
@@ -20,6 +21,8 @@ import net.shlomo1412.booster.client.editor.widget.EditorGuide;
 import net.shlomo1412.booster.client.editor.widget.EditorSidebar;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.ModuleManager;
+import net.shlomo1412.booster.client.module.modules.ClearGridModule;
+import net.shlomo1412.booster.client.module.modules.InfiniteCraftModule;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
 import net.shlomo1412.booster.client.module.modules.SearchBarModule;
 import net.shlomo1412.booster.client.module.modules.SortContainerModule;
@@ -90,6 +93,13 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     
     @Unique
     private net.shlomo1412.booster.client.widget.BoosterProgressBar booster$progressBarWidget;
+    
+    // Crafting screen modules
+    @Unique
+    private ClearGridModule booster$clearGridModule;
+    
+    @Unique
+    private InfiniteCraftModule booster$infiniteCraftModule;
 
     // Required for extending Screen
     protected HandledScreenMixin() {
@@ -115,13 +125,16 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         booster$sortInventoryModule = null;
         booster$sortContainerModule = null;
         booster$progressBarWidget = null;
+        booster$clearGridModule = null;
+        booster$infiniteCraftModule = null;
 
         // Determine screen type
         boolean isContainerScreen = handler instanceof GenericContainerScreenHandler;
         boolean isPlayerInventory = handler instanceof PlayerScreenHandler;
+        boolean isCraftingScreen = handler instanceof CraftingScreenHandler;
         
         // Only process screens we support
-        if (!isContainerScreen && !isPlayerInventory) {
+        if (!isContainerScreen && !isPlayerInventory && !isCraftingScreen) {
             return;
         }
         
@@ -189,9 +202,42 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
             }
         }
         
-        // Add Sort Inventory button (works on BOTH container screens and player inventory)
+        // Crafting table screen modules
+        if (isCraftingScreen) {
+            // Add Clear Grid button
+            booster$clearGridModule = ModuleManager.getInstance().getModule(ClearGridModule.class);
+            if (booster$clearGridModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$clearGridModule.isEnabled()) {
+                    booster$clearGridModule.createButton(
+                        self,
+                        x + backgroundWidth,  // Right edge of crafting GUI
+                        y,
+                        button -> this.addDrawableChild(button)
+                    );
+                }
+            }
+            
+            // Add Infinite Craft button
+            booster$infiniteCraftModule = ModuleManager.getInstance().getModule(InfiniteCraftModule.class);
+            if (booster$infiniteCraftModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$infiniteCraftModule.isEnabled()) {
+                    booster$infiniteCraftModule.createButton(
+                        self,
+                        x + backgroundWidth,  // Right edge of crafting GUI
+                        y,
+                        button -> this.addDrawableChild(button)
+                    );
+                }
+            }
+        }
+        
+        // Add Sort Inventory button (works on container, player inventory, and crafting screens)
         booster$sortInventoryModule = ModuleManager.getInstance().getModule(SortInventoryModule.class);
-        if (booster$sortInventoryModule != null) {
+        if (booster$sortInventoryModule != null && (isContainerScreen || isPlayerInventory)) {
             booster$hasBoosterContent = true;
             
             if (booster$sortInventoryModule.isEnabled()) {
@@ -234,6 +280,7 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         if (editor.isEditorModeActive()) {
             // Determine screen type
             boolean isContainerScreen = handler instanceof GenericContainerScreenHandler;
+            boolean isCraftingScreen = handler instanceof CraftingScreenHandler;
             
             // Create sidebar with modules appropriate for this screen type
             List<GUIModule> activeModules = new ArrayList<>();
@@ -261,10 +308,25 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                 }
             }
             
-            // Sort Inventory works on both screen types
-            SortInventoryModule sortInventory = ModuleManager.getInstance().getModule(SortInventoryModule.class);
-            if (sortInventory != null) {
-                activeModules.add(sortInventory);
+            // Crafting table modules
+            if (isCraftingScreen) {
+                ClearGridModule clearGrid = ModuleManager.getInstance().getModule(ClearGridModule.class);
+                if (clearGrid != null) {
+                    activeModules.add(clearGrid);
+                }
+                
+                InfiniteCraftModule infiniteCraft = ModuleManager.getInstance().getModule(InfiniteCraftModule.class);
+                if (infiniteCraft != null) {
+                    activeModules.add(infiniteCraft);
+                }
+            }
+            
+            // Sort Inventory works on container and player inventory screens
+            if (isContainerScreen || handler instanceof PlayerScreenHandler) {
+                SortInventoryModule sortInventory = ModuleManager.getInstance().getModule(SortInventoryModule.class);
+                if (sortInventory != null) {
+                    activeModules.add(sortInventory);
+                }
             }
             
             ScreenInfo screenInfo = new ScreenInfo(this, x, y, backgroundWidth, backgroundHeight);
@@ -301,6 +363,11 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
      */
     @Inject(method = "render", at = @At("TAIL"))
     private void booster$onRender(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        // Tick infinite craft module (handles continuous crafting)
+        if (booster$infiniteCraftModule != null && booster$infiniteCraftModule.isEnabled()) {
+            booster$infiniteCraftModule.tick((HandledScreen<?>) (Object) this);
+        }
+        
         // Render inventory progress bar widget (if enabled)
         if (booster$progressBarWidget != null && booster$inventoryProgressModule != null && booster$inventoryProgressModule.isEnabled()) {
             booster$progressBarWidget.render(context, mouseX, mouseY, delta);
@@ -515,6 +582,14 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         if (booster$sortContainerModule != null) {
             booster$sortContainerModule.clearButton();
             booster$sortContainerModule = null;
+        }
+        if (booster$clearGridModule != null) {
+            booster$clearGridModule.clearButton();
+            booster$clearGridModule = null;
+        }
+        if (booster$infiniteCraftModule != null) {
+            booster$infiniteCraftModule.clearButton();
+            booster$infiniteCraftModule = null;
         }
     }
 }
