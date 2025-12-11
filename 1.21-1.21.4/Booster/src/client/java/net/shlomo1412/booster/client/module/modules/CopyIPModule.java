@@ -51,8 +51,8 @@ public class CopyIPModule extends GUIModule {
         copyButton = new BoosterButton(
             buttonX, buttonY,
             settings.getWidth(), settings.getHeight(),
-            "📋 Copy IP",
-            "Copy Server IP",
+            "📋",
+            "Copy IP",
             "Copies the selected server's IP address to your clipboard.\n" +
             "Select a server from the list first.",
             button -> {

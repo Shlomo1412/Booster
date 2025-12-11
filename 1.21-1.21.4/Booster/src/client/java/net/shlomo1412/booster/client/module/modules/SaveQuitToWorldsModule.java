@@ -45,8 +45,8 @@ public class SaveQuitToWorldsModule extends GUIModule {
         saveQuitButton = new BoosterButton(
             buttonX, buttonY,
             settings.getWidth(), settings.getHeight(),
-            "🌍 Save & Quit to Worlds",
-            "Save & Go to World Selection",
+            "🌍",
+            "To Worlds",
             "Saves your progress and returns to the world selection screen.\n" +
             "Skip the title screen and quickly switch worlds!",
             button -> {

@@ -43,8 +43,8 @@ public class SaveQuitGameModule extends GUIModule {
         saveQuitButton = new BoosterButton(
             buttonX, buttonY,
             settings.getWidth(), settings.getHeight(),
-            "⏻ Save & Quit Game",
-            "Save & Exit Game",
+            "⏻",
+            "Quit Game",
             "Saves your progress and exits Minecraft completely.\n" +
             "Perfect for quickly closing the game.",
             button -> {

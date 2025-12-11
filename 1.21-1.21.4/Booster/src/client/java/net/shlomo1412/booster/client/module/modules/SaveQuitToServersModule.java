@@ -45,8 +45,8 @@ public class SaveQuitToServersModule extends GUIModule {
         saveQuitButton = new BoosterButton(
             buttonX, buttonY,
             settings.getWidth(), settings.getHeight(),
-            "🖧 Quit to Servers",
-            "Disconnect & Go to Server List",
+            "🖧",
+            "To Servers",
             "Disconnects from the server and returns to the server selection screen.\n" +
             "Skip the title screen and quickly switch servers!",
             button -> {

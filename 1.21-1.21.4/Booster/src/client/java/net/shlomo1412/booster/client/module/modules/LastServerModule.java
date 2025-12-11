@@ -88,15 +88,15 @@ public class LastServerModule extends GUIModule {
         int buttonY = anchorY + settings.getOffsetY();
         
         String serverName = getLastServerName();
-        String displayText = hasLastServer() ? 
-            "⚡ " + (serverName != null ? serverName : "Last Server") : 
-            "⚡ No Recent Server";
+        String buttonName = hasLastServer() ? 
+            (serverName != null ? serverName : "Last Server") : 
+            "No Recent Server";
         
         lastServerButton = new BoosterButton(
             buttonX, buttonY,
             settings.getWidth(), settings.getHeight(),
-            displayText,
-            "Rejoin Last Server",
+            "⚡",
+            buttonName,
             hasLastServer() ? 
                 "Quickly reconnect to: " + getLastServerAddress() :
                 "No server history yet. Join a server first!",

@@ -46,10 +46,12 @@ public class InfiniteCraftModule extends GUIModule {
     private CraftState craftState = CraftState.IDLE;
     private int tickDelay = 0;
     
-    // Saved pattern: stores the Item for each slot (null if empty)
+    // Saved pattern: stores the Item and count for each slot (null if empty)
     // Slots 1-9 in CraftingScreenHandler are the 3x3 grid
-    private Item[] savedPattern = new Item[9];
+    private Item[] savedPatternItems = new Item[9];
+    private int[] savedPatternCounts = new int[9];
     private int currentRefillSlot = 0;  // Which grid slot we're currently refilling (0-8)
+    private int currentRefillCount = 0; // How many more items needed for current slot
     
     public InfiniteCraftModule() {
         super(
@@ -210,20 +212,31 @@ public class InfiniteCraftModule extends GUIModule {
             }
             
             case REFILLING -> {
-                // Refill one slot at a time
-                if (!refillNextSlot(client, craftingHandler)) {
-                    // Failed to refill - no more materials
-                    stopCrafting();
-                    return;
-                }
+                // Refill slots with the saved amounts
+                RefillResult result = refillNextSlot(client, craftingHandler);
                 
-                currentRefillSlot++;
-                if (currentRefillSlot >= 9) {
-                    // All slots refilled - back to crafting
-                    craftState = CraftState.WAITING;
-                    tickDelay = delaySetting.getValue();
-                } else {
-                    tickDelay = 1;  // Small delay between slot refills
+                switch (result) {
+                    case DONE_WITH_SLOT -> {
+                        // Move to next slot
+                        currentRefillSlot++;
+                        currentRefillCount = 0;
+                        if (currentRefillSlot >= 9) {
+                            // All slots refilled - back to crafting
+                            craftState = CraftState.WAITING;
+                            tickDelay = delaySetting.getValue();
+                        } else {
+                            tickDelay = 1;
+                        }
+                    }
+                    case NEED_MORE -> {
+                        // Need more items for this slot, continue
+                        tickDelay = 1;
+                    }
+                    case FAILED -> {
+                        // Couldn't find more materials - stop crafting
+                        stopCrafting();
+                        return;
+                    }
                 }
             }
             
@@ -242,48 +255,64 @@ public class InfiniteCraftModule extends GUIModule {
     
     /**
      * Saves the current crafting grid pattern.
-     * Stores which item type is in each slot (1-9).
+     * Stores which item type and count is in each slot (1-9).
      */
     private void saveGridPattern(CraftingScreenHandler handler) {
         for (int i = 0; i < 9; i++) {
             Slot slot = handler.getSlot(i + 1);  // Slots 1-9 are the crafting grid
             if (slot.hasStack()) {
-                savedPattern[i] = slot.getStack().getItem();
+                savedPatternItems[i] = slot.getStack().getItem();
+                savedPatternCounts[i] = slot.getStack().getCount();
             } else {
-                savedPattern[i] = null;
+                savedPatternItems[i] = null;
+                savedPatternCounts[i] = 0;
             }
         }
     }
     
+    private enum RefillResult {
+        DONE_WITH_SLOT,  // Slot has reached target count (or was empty)
+        NEED_MORE,       // Need more items in this slot
+        FAILED           // Couldn't find more materials
+    }
+    
     /**
-     * Attempts to refill the next slot that needs an item.
-     * @return true if slot was empty or successfully refilled, false if couldn't find item
+     * Attempts to refill the current slot to its target count.
+     * @return RefillResult indicating progress
      */
-    private boolean refillNextSlot(MinecraftClient client, CraftingScreenHandler handler) {
-        // Get the item that should be in this slot
-        Item neededItem = savedPattern[currentRefillSlot];
+    private RefillResult refillNextSlot(MinecraftClient client, CraftingScreenHandler handler) {
+        // Get the item and count that should be in this slot
+        Item neededItem = savedPatternItems[currentRefillSlot];
+        int targetCount = savedPatternCounts[currentRefillSlot];
         
         // If no item needed in this slot, skip it
-        if (neededItem == null) {
-            return true;
+        if (neededItem == null || targetCount == 0) {
+            return RefillResult.DONE_WITH_SLOT;
         }
         
-        // Check if slot already has the item
+        // Check current count in slot
         Slot gridSlot = handler.getSlot(currentRefillSlot + 1);  // Slots 1-9
+        int currentCount = 0;
         if (gridSlot.hasStack() && gridSlot.getStack().getItem() == neededItem) {
-            return true;  // Already has the right item
+            currentCount = gridSlot.getStack().getCount();
         }
+        
+        // Check if we've reached the target count
+        if (currentCount >= targetCount) {
+            return RefillResult.DONE_WITH_SLOT;
+        }
+        
+        int neededCount = targetCount - currentCount;
         
         // Find the item in player inventory and move it to the crafting grid
         // Player inventory slots in CraftingScreenHandler: 10-36 (main inventory) and 37-45 (hotbar)
-        // Actually: crafting output=0, grid=1-9, player inv=10-36, hotbar=37-45
-        
-        // Search player inventory for the item
         for (int invSlot = 10; invSlot <= 45; invSlot++) {
             Slot slot = handler.getSlot(invSlot);
             if (slot.hasStack() && slot.getStack().getItem() == neededItem) {
-                // Found the item! Move it to the crafting grid
-                // Pick up the stack
+                int availableCount = slot.getStack().getCount();
+                int transferCount = Math.min(neededCount, availableCount);
+                
+                // Pick up the stack from inventory
                 client.interactionManager.clickSlot(
                     handler.syncId,
                     invSlot,
@@ -292,33 +321,58 @@ public class InfiniteCraftModule extends GUIModule {
                     client.player
                 );
                 
-                // Place one item in the grid slot (right-click to place one)
-                client.interactionManager.clickSlot(
-                    handler.syncId,
-                    currentRefillSlot + 1,  // Grid slots 1-9
-                    1,  // Right-click to place one
-                    SlotActionType.PICKUP,
-                    client.player
-                );
-                
-                // Put remaining items back
-                if (client.player.currentScreenHandler.getCursorStack() != null && 
-                    !client.player.currentScreenHandler.getCursorStack().isEmpty()) {
+                // Place items in the grid slot
+                if (transferCount == availableCount) {
+                    // Place all (left-click)
                     client.interactionManager.clickSlot(
                         handler.syncId,
-                        invSlot,
+                        currentRefillSlot + 1,
                         0,
                         SlotActionType.PICKUP,
                         client.player
                     );
+                } else {
+                    // Place one at a time using right-click
+                    for (int i = 0; i < transferCount; i++) {
+                        client.interactionManager.clickSlot(
+                            handler.syncId,
+                            currentRefillSlot + 1,
+                            1,  // Right-click to place one
+                            SlotActionType.PICKUP,
+                            client.player
+                        );
+                    }
+                    
+                    // Put remaining items back
+                    if (client.player.currentScreenHandler.getCursorStack() != null && 
+                        !client.player.currentScreenHandler.getCursorStack().isEmpty()) {
+                        client.interactionManager.clickSlot(
+                            handler.syncId,
+                            invSlot,
+                            0,
+                            SlotActionType.PICKUP,
+                            client.player
+                        );
+                    }
                 }
                 
-                return true;
+                // Check if we reached the target
+                currentCount += transferCount;
+                if (currentCount >= targetCount) {
+                    return RefillResult.DONE_WITH_SLOT;
+                } else {
+                    return RefillResult.NEED_MORE;
+                }
             }
         }
         
-        // Couldn't find the item
-        return false;
+        // Couldn't find any more of this item - but we might have partial fill
+        // If we have at least 1 item, consider it done (craft with what we have)
+        if (currentCount > 0) {
+            return RefillResult.DONE_WITH_SLOT;
+        }
+        
+        return RefillResult.FAILED;
     }
     
     /**
@@ -355,7 +409,9 @@ public class InfiniteCraftModule extends GUIModule {
         craftState = CraftState.IDLE;
         tickDelay = 0;
         currentRefillSlot = 0;
-        savedPattern = new Item[9];
+        currentRefillCount = 0;
+        savedPatternItems = new Item[9];
+        savedPatternCounts = new int[9];
         updateButtonAppearance();
     }
     

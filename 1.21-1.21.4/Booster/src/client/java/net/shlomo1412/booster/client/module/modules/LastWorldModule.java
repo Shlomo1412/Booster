@@ -89,15 +89,15 @@ public class LastWorldModule extends GUIModule {
         int buttonY = anchorY + settings.getOffsetY();
         
         String displayName = getLastWorldDisplayName();
-        String displayText = hasLastWorld() ? 
-            "🌍 " + (displayName != null ? displayName : "Last World") : 
-            "🌍 No Recent World";
+        String buttonName = hasLastWorld() ? 
+            (displayName != null ? displayName : "Last World") : 
+            "No Recent World";
         
         lastWorldButton = new BoosterButton(
             buttonX, buttonY,
             settings.getWidth(), settings.getHeight(),
-            displayText,
-            "Rejoin Last World",
+            "🌍",
+            buttonName,
             hasLastWorld() ? 
                 "Quickly load: " + (displayName != null ? displayName : getLastWorldName()) :
                 "No world history yet. Play a world first!",
