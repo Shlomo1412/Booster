@@ -3,21 +3,27 @@ package net.shlomo1412.booster.client;
 import net.fabricmc.api.ClientModInitializer;
 import net.shlomo1412.booster.client.editor.ScreenEditorHandler;
 import net.shlomo1412.booster.client.module.ModuleManager;
+import net.shlomo1412.booster.client.module.modules.AutoArmorModule;
 import net.shlomo1412.booster.client.module.modules.ClearGridModule;
+import net.shlomo1412.booster.client.module.modules.ConnectToServerModule;
 import net.shlomo1412.booster.client.module.modules.CopyIPModule;
+import net.shlomo1412.booster.client.module.modules.DatapacksFolderModule;
 import net.shlomo1412.booster.client.module.modules.InfiniteCraftModule;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
-import net.shlomo1412.booster.client.module.modules.AutoArmorModule;
 import net.shlomo1412.booster.client.module.modules.LastServerModule;
 import net.shlomo1412.booster.client.module.modules.LastWorldModule;
 import net.shlomo1412.booster.client.module.modules.OpenScreenshotsModule;
+import net.shlomo1412.booster.client.module.modules.OpenWorldFolderModule;
+import net.shlomo1412.booster.client.module.modules.ReconnectModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitGameModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToServersModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToWorldsModule;
 import net.shlomo1412.booster.client.module.modules.SearchBarModule;
+import net.shlomo1412.booster.client.module.modules.ServerInfoModule;
 import net.shlomo1412.booster.client.module.modules.SortContainerModule;
 import net.shlomo1412.booster.client.module.modules.SortInventoryModule;
 import net.shlomo1412.booster.client.module.modules.StealStoreModule;
+import net.shlomo1412.booster.client.module.modules.SwitchWorldModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,6 +81,16 @@ public class BoosterClient implements ClientModInitializer {
         manager.register(new SaveQuitToWorldsModule());
         manager.register(new SaveQuitToServersModule());
         manager.register(new OpenScreenshotsModule());
+        
+        // Pause Menu Modules - Singleplayer Only
+        manager.register(new OpenWorldFolderModule());
+        manager.register(new DatapacksFolderModule());
+        manager.register(new SwitchWorldModule());
+        
+        // Pause Menu Modules - Multiplayer Only
+        manager.register(new ReconnectModule());
+        manager.register(new ServerInfoModule());
+        manager.register(new ConnectToServerModule());
         
         // Add more modules here as they are created
     }

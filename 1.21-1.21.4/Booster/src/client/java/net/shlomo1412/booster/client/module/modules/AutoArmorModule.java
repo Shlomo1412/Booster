@@ -1,5 +1,6 @@
 package net.shlomo1412.booster.client.module.modules;
 
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.component.DataComponentTypes;
@@ -13,11 +14,12 @@ import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
 import net.minecraft.screen.PlayerScreenHandler;
 import net.minecraft.screen.slot.SlotActionType;
 import net.shlomo1412.booster.client.editor.EditorModeManager;
 import net.shlomo1412.booster.client.module.GUIModule;
+import net.shlomo1412.booster.client.module.ModuleManager;
+import net.shlomo1412.booster.client.module.ModuleSetting;
 import net.shlomo1412.booster.client.module.WidgetSettings;
 import net.shlomo1412.booster.client.widget.BoosterButton;
 
@@ -25,27 +27,86 @@ import java.util.function.Consumer;
 
 /**
  * Module that adds an "Auto Armor" toggle button to the inventory screen.
- * When enabled, automatically equips the best armor found in the inventory.
+ * When toggled ON, continuously monitors inventory and automatically equips the best armor.
+ * Works even when the inventory screen is closed - monitors via client tick events.
  * Takes into account armor value and enchantments (especially Protection).
  */
 public class AutoArmorModule extends GUIModule {
     
     public static final String AUTO_ARMOR_WIDGET_ID = "auto_armor";
     
+    // Persistent toggle state (saved to config)
+    private final ModuleSetting.BooleanSetting autoArmorToggle;
+    
     private BoosterButton autoArmorButton;
-    private boolean isAutoEquipping = false;
-    private int equipDelay = 0;
+    private int equipCooldown = 0;
+    private static boolean tickRegistered = false;
     
     public AutoArmorModule() {
         super(
             "auto_armor",
             "Auto Armor",
-            "Adds a button to automatically equip the best armor.\n" +
+            "Toggle to automatically equip the best armor.\n" +
+            "Works continuously, even when inventory is closed.\n" +
             "Considers armor value and enchantments.",
             true,
             20,  // Default button width
             20   // Default button height
         );
+        
+        // Persistent toggle setting
+        this.autoArmorToggle = new ModuleSetting.BooleanSetting(
+            "auto_armor_active",
+            "Auto Armor Active",
+            "When enabled, automatically equips the best armor at all times",
+            false  // Default off
+        );
+        registerSetting(autoArmorToggle);
+    }
+    
+    @Override
+    public void onEnable() {
+        super.onEnable();
+        registerTickHandler();
+    }
+    
+    /**
+     * Registers the client tick handler for continuous armor monitoring.
+     * Only registers once.
+     */
+    public static void registerTickHandler() {
+        if (!tickRegistered) {
+            ClientTickEvents.END_CLIENT_TICK.register(client -> {
+                AutoArmorModule module = ModuleManager.getInstance().getModule(AutoArmorModule.class);
+                if (module != null && module.isEnabled() && module.isAutoArmorActive()) {
+                    module.tickAutoArmor(client);
+                }
+            });
+            tickRegistered = true;
+        }
+    }
+    
+    /**
+     * @return Whether auto armor is currently active (toggled on)
+     */
+    public boolean isAutoArmorActive() {
+        return autoArmorToggle.getValue();
+    }
+    
+    /**
+     * Sets the auto armor toggle state.
+     */
+    public void setAutoArmorActive(boolean active) {
+        autoArmorToggle.setValue(active);
+        ModuleManager.getInstance().saveConfig();
+        updateButtonAppearance();
+    }
+    
+    /**
+     * Toggles the auto armor state.
+     */
+    public void toggleAutoArmor() {
+        setAutoArmorActive(!isAutoArmorActive());
     }
     
     /**
@@ -62,11 +123,13 @@ public class AutoArmorModule extends GUIModule {
         autoArmorButton = new BoosterButton(
             buttonX, buttonY,
             settings.getWidth(), settings.getHeight(),
-            "🛡",
+            isAutoArmorActive() ? "🛡✓" : "🛡",
             "Auto Armor",
-            "Click to automatically equip the best armor from your inventory.\n" +
-            "Compares armor value and enchantments to find the best pieces.",
-            button -> startAutoEquip(screen)
+            "Toggle automatic armor equipping.\n" +
+            "When ON, always wears the best armor available.\n" +
+            "Works even when inventory is closed!\n\n" +
+            "§7Status: " + (isAutoArmorActive() ? "§aON" : "§cOFF"),
+            button -> toggleAutoArmor()
         );
         
         // Apply display mode from settings
@@ -79,73 +142,48 @@ public class AutoArmorModule extends GUIModule {
     }
     
     /**
-     * Starts the auto-equip process.
-     */
-    private void startAutoEquip(HandledScreen<?> screen) {
-        if (isAutoEquipping) {
-            // Already running, stop it
-            stopAutoEquip();
-            return;
-        }
-        
-        isAutoEquipping = true;
-        equipDelay = 0;
-        updateButtonAppearance();
-    }
-    
-    /**
-     * Updates button appearance based on state.
+     * Updates button appearance based on toggle state.
      */
     private void updateButtonAppearance() {
         if (autoArmorButton != null) {
             autoArmorButton.setMessage(net.minecraft.text.Text.literal(
-                isAutoEquipping ? "⏳" : "🛡"
+                isAutoArmorActive() ? "🛡✓" : "🛡"
             ));
         }
     }
     
     /**
-     * Called every tick to perform armor equipping.
+     * Called every client tick to check and equip best armor.
+     * Works even when inventory screen is not open.
      */
-    public void tick(HandledScreen<?> screen) {
-        if (!isAutoEquipping || !isEnabled()) {
+    private void tickAutoArmor(MinecraftClient client) {
+        if (client.player == null || client.interactionManager == null || client.world == null) {
             return;
         }
         
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || client.interactionManager == null) {
-            stopAutoEquip();
+        // Cooldown to prevent spam
+        if (equipCooldown > 0) {
+            equipCooldown--;
             return;
         }
         
-        if (!(screen.getScreenHandler() instanceof PlayerScreenHandler handler)) {
-            stopAutoEquip();
-            return;
-        }
-        
-        // Small delay between operations
-        if (equipDelay > 0) {
-            equipDelay--;
-            return;
-        }
-        
-        // Try to equip best armor for each slot
-        boolean equipped = false;
-        
+        // Check and equip best armor for each slot
         for (EquipmentSlot slot : new EquipmentSlot[]{
                 EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
             
-            if (tryEquipBestArmor(client, handler, slot)) {
-                equipped = true;
-                equipDelay = 2; // Small delay between equips
-                break;
+            if (tryEquipBestArmorGlobally(client, slot)) {
+                equipCooldown = 5; // Small cooldown between equips
+                return; // Only equip one piece per tick
             }
         }
-        
-        if (!equipped) {
-            // Done equipping
-            stopAutoEquip();
-        }
+    }
+    
+    /**
+     * Called from inventory screen to update the button.
+     */
+    public void tick(HandledScreen<?> screen) {
+        // Just update button appearance
+        updateButtonAppearance();
     }
     
     /**
@@ -162,9 +200,10 @@ public class AutoArmorModule extends GUIModule {
     
     /**
      * Tries to equip the best armor piece for a given slot.
-     * @return true if an armor piece was equipped
+     * Works by opening a synthetic container interaction.
+     * @return true if an armor piece needs to be swapped
      */
-    private boolean tryEquipBestArmor(MinecraftClient client, PlayerScreenHandler handler, EquipmentSlot slot) {
+    private boolean tryEquipBestArmorGlobally(MinecraftClient client, EquipmentSlot slot) {
         PlayerInventory inventory = client.player.getInventory();
         
         // Get currently equipped armor
@@ -195,30 +234,36 @@ public class AutoArmorModule extends GUIModule {
             return false; // No better armor found
         }
         
-        // Convert inventory slot to screen handler slot
-        // PlayerScreenHandler slots:
-        // 0 = crafting output, 1-4 = crafting grid, 5-8 = armor slots, 9 = offhand
-        // 10-36 = main inventory, 37-45 = hotbar
-        
-        int handlerSlot;
-        if (bestSlotIndex < 9) {
-            // Hotbar: slots 0-8 in inventory -> slots 36-44 in handler
-            handlerSlot = 36 + bestSlotIndex;
-        } else {
-            // Main inventory: slots 9-35 in inventory -> slots 9-35 in handler
-            handlerSlot = bestSlotIndex;
+        // We need to equip armor - use the player's screen handler
+        // This works even when no screen is open because the player always has a PlayerScreenHandler
+        if (client.player.currentScreenHandler instanceof PlayerScreenHandler handler) {
+            // Convert inventory slot to screen handler slot
+            // PlayerScreenHandler slots:
+            // 0 = crafting output, 1-4 = crafting grid, 5-8 = armor slots, 9 = offhand
+            // 10-36 = main inventory (actually 9-35 in inventory), 37-45 = hotbar (0-8 in inventory)
+            
+            int handlerSlot;
+            if (bestSlotIndex < 9) {
+                // Hotbar: slots 0-8 in inventory -> slots 36-44 in handler
+                handlerSlot = 36 + bestSlotIndex;
+            } else {
+                // Main inventory: slots 9-35 in inventory -> slots 9-35 in handler
+                handlerSlot = bestSlotIndex;
+            }
+            
+            // Shift-click to equip (will swap if something is already equipped)
+            client.interactionManager.clickSlot(
+                handler.syncId,
+                handlerSlot,
+                0,
+                SlotActionType.QUICK_MOVE,
+                client.player
+            );
+            
+            return true;
         }
         
-        // Shift-click to equip (will swap if something is already equipped)
-        client.interactionManager.clickSlot(
-            handler.syncId,
-            handlerSlot,
-            0,
-            SlotActionType.QUICK_MOVE,
-            client.player
-        );
-        
-        return true;
+        return false;
     }
     
     /**
@@ -305,11 +350,6 @@ public class AutoArmorModule extends GUIModule {
      */
     private int getEnchantmentLevel(ItemEnchantmentsComponent enchantments, 
                                      RegistryKey<Enchantment> enchantmentKey) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null) {
-            return 0;
-        }
-        
         // Iterate through enchantments and check for matching key
         for (var entry : enchantments.getEnchantments()) {
             if (entry.matchesKey(enchantmentKey)) {
@@ -318,22 +358,6 @@ public class AutoArmorModule extends GUIModule {
         }
         
         return 0;
-    }
-    
-    /**
-     * Stops the auto-equip process.
-     */
-    public void stopAutoEquip() {
-        isAutoEquipping = false;
-        equipDelay = 0;
-        updateButtonAppearance();
-    }
-    
-    /**
-     * @return Whether auto-equipping is currently active
-     */
-    public boolean isAutoEquipping() {
-        return isAutoEquipping;
     }
     
     /**
@@ -347,7 +371,6 @@ public class AutoArmorModule extends GUIModule {
      * Clears button reference when screen closes.
      */
     public void clearButton() {
-        stopAutoEquip();
         autoArmorButton = null;
     }
 }
