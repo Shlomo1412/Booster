@@ -13,6 +13,10 @@ import net.shlomo1412.booster.client.editor.EditorModeManager;
 import net.shlomo1412.booster.client.editor.ScreenInfo;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.ModuleSetting;
+import net.shlomo1412.booster.client.module.WidgetSettings;
+import net.shlomo1412.booster.client.widget.BoosterButton;
+import net.shlomo1412.booster.client.widget.ButtonDisplayMode;
+import net.shlomo1412.booster.client.widget.SortButton;
 
 import java.util.HashSet;
 import java.util.List;
@@ -74,6 +78,9 @@ public class EditorSidebar implements Drawable, Element {
     private boolean focused = false;
     private int hoveredModuleIndex = -1;
     private boolean collapseButtonHovered = false;
+    
+    // Display mode button bounds for click detection
+    private int[] displayModeButtonBounds = null; // {x, y, width, height}
 
     public EditorSidebar(MinecraftClient client, ScreenInfo screenInfo,
                          List<GUIModule> activeModules, Consumer<Element> addChild) {
@@ -291,6 +298,10 @@ public class EditorSidebar implements Drawable, Element {
                     "  Pos: (" + selected.getX() + ", " + selected.getY() + ")",
                     x + PADDING, currentY, TEXT_DIM_COLOR);
             currentY += LINE_HEIGHT;
+            
+            // Display mode control for BoosterButton and SortButton
+            currentY += 4;
+            currentY = renderDisplayModeControl(context, x, currentY, mouseX, mouseY, selected);
         }
 
         // Calculate max scroll based on content height
@@ -355,6 +366,67 @@ public class EditorSidebar implements Drawable, Element {
 
     private int getDevDetailsHeight() {
         return screenInfo.getDevDetails().size() * (LINE_HEIGHT * 2 + 2) + 8;
+    }
+    
+    /**
+     * Renders the display mode control for BoosterButton and SortButton widgets.
+     */
+    private int renderDisplayModeControl(DrawContext context, int x, int startY, 
+                                          int mouseX, int mouseY, DraggableWidget widget) {
+        int currentY = startY;
+        
+        // Get the current display mode from the widget
+        ButtonDisplayMode currentMode = null;
+        
+        if (widget instanceof BoosterButton boosterButton) {
+            currentMode = boosterButton.getDisplayMode();
+        } else if (widget instanceof SortButton sortButton) {
+            currentMode = sortButton.getDisplayMode();
+        }
+        
+        if (currentMode == null) {
+            displayModeButtonBounds = null;
+            return currentY;
+        }
+        
+        int buttonX = x + PADDING + 2;
+        int buttonY = currentY;
+        int buttonWidth = getCurrentWidth() - PADDING * 2 - 4;
+        int buttonHeight = 16;
+        
+        // Check if mouse is hovering over the button
+        boolean hovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
+                          mouseY >= buttonY && mouseY < buttonY + buttonHeight;
+        
+        // Background
+        int bgColor = hovered ? 0xFF3a3a3a : SECTION_BG_COLOR;
+        context.fill(buttonX, buttonY, buttonX + buttonWidth, buttonY + buttonHeight, bgColor);
+        
+        // Border
+        context.fill(buttonX, buttonY, buttonX + buttonWidth, buttonY + 1, BORDER_COLOR);
+        context.fill(buttonX, buttonY + buttonHeight - 1, buttonX + buttonWidth, buttonY + buttonHeight, BORDER_COLOR);
+        context.fill(buttonX, buttonY, buttonX + 1, buttonY + buttonHeight, BORDER_COLOR);
+        context.fill(buttonX + buttonWidth - 1, buttonY, buttonX + buttonWidth, buttonY + buttonHeight, BORDER_COLOR);
+        
+        // Label and value
+        String label = "Display: ";
+        String value = currentMode.getDisplayName();
+        
+        context.drawTextWithShadow(textRenderer, label, buttonX + 4, buttonY + 4, TEXT_DIM_COLOR);
+        int labelWidth = textRenderer.getWidth(label);
+        context.drawTextWithShadow(textRenderer, value, buttonX + 4 + labelWidth, buttonY + 4, 
+                                   hovered ? ACCENT_COLOR : TEXT_COLOR);
+        
+        // Arrows on both sides
+        context.drawTextWithShadow(textRenderer, "◀", buttonX + buttonWidth - 24, buttonY + 4, 
+                                   hovered ? ACCENT_COLOR : TEXT_DIM_COLOR);
+        context.drawTextWithShadow(textRenderer, "▶", buttonX + buttonWidth - 12, buttonY + 4, 
+                                   hovered ? ACCENT_COLOR : TEXT_DIM_COLOR);
+        
+        // Store bounds for click detection
+        displayModeButtonBounds = new int[] {buttonX, buttonY, buttonWidth, buttonHeight};
+        
+        return currentY + buttonHeight + 4;
     }
 
     private int renderModuleSection(DrawContext context, int x, int startY,
@@ -684,6 +756,40 @@ public class EditorSidebar implements Drawable, Element {
             currentY += getDevDetailsHeight();
         }
         currentY += SECTION_SPACING + LINE_HEIGHT + 6;
+        
+        // Check display mode button click
+        if (displayModeButtonBounds != null) {
+            int btnX = displayModeButtonBounds[0];
+            int btnY = displayModeButtonBounds[1];
+            int btnW = displayModeButtonBounds[2];
+            int btnH = displayModeButtonBounds[3];
+            
+            if (mouseX >= btnX && mouseX < btnX + btnW && mouseY >= btnY && mouseY < btnY + btnH) {
+                DraggableWidget selected = EditorModeManager.getInstance().getSelectedWidget();
+                if (selected != null) {
+                    // Cycle display mode
+                    if (selected instanceof BoosterButton boosterButton) {
+                        ButtonDisplayMode nextMode = boosterButton.getDisplayMode().next();
+                        boosterButton.setDisplayMode(nextMode);
+                        // Save to widget settings
+                        GUIModule module = boosterButton.getModule();
+                        if (module != null && boosterButton.getWidgetId() != null) {
+                            module.updateWidgetDisplayMode(boosterButton.getWidgetId(), nextMode);
+                        }
+                        return true;
+                    } else if (selected instanceof SortButton sortButton) {
+                        ButtonDisplayMode nextMode = sortButton.getDisplayMode().next();
+                        sortButton.setDisplayMode(nextMode);
+                        // Save to widget settings
+                        GUIModule module = sortButton.getModule();
+                        if (module != null && sortButton.getWidgetId() != null) {
+                            module.updateWidgetDisplayMode(sortButton.getWidgetId(), nextMode);
+                        }
+                        return true;
+                    }
+                }
+            }
+        }
 
         // Check module sections
         for (GUIModule module : activeModules) {

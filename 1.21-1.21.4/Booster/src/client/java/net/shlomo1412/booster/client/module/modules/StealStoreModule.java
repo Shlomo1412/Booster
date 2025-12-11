@@ -66,6 +66,7 @@ public class StealStoreModule extends GUIModule {
             "Move all items from your inventory to the container",
             button -> storeItems(screen)
         );
+        storeButton.setDisplayMode(storeSettings.getDisplayMode());
         storeButton.setEditorInfo(this, STORE_WIDGET_ID, "Store", anchorX, anchorY);
         
         // Steal button (⬇) - below store
@@ -79,6 +80,7 @@ public class StealStoreModule extends GUIModule {
             "Move all items from the container to your inventory",
             button -> stealItems(screen)
         );
+        stealButton.setDisplayMode(stealSettings.getDisplayMode());
         stealButton.setEditorInfo(this, STEAL_WIDGET_ID, "Steal", anchorX, anchorY);
         
         addDrawableChild.accept(storeButton);

@@ -1,5 +1,6 @@
 package net.shlomo1412.booster.client.widget;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
@@ -15,12 +16,17 @@ import net.shlomo1412.booster.client.module.GUIModule;
  * Base button widget for Booster with enhanced tooltip support.
  * Shows action description normally, full description when CTRL is held.
  * Implements DraggableWidget for editor mode support.
+ * Supports different display modes: Icon Only, Name + Icon, Automatic.
  */
 public class BoosterButton extends ButtonWidget implements DraggableWidget {
+    private final String icon;
     private final String actionDescription;
     private final String fullDescription;
     private final Tooltip normalTooltip;
     private final Tooltip extendedTooltip;
+    
+    // Display mode
+    private ButtonDisplayMode displayMode = ButtonDisplayMode.AUTO;
     
     // Editor mode support
     private GUIModule parentModule;
@@ -45,12 +51,65 @@ public class BoosterButton extends ButtonWidget implements DraggableWidget {
                          String actionDescription, String fullDescription,
                          PressAction onPress) {
         super(x, y, width, height, Text.literal(icon), onPress, DEFAULT_NARRATION_SUPPLIER);
+        this.icon = icon;
         this.actionDescription = actionDescription;
         this.fullDescription = fullDescription;
         this.displayName = actionDescription;
         this.normalTooltip = Tooltip.of(createNormalTooltip());
         this.extendedTooltip = Tooltip.of(createExtendedTooltip());
         setTooltip(normalTooltip);
+        updateDisplayedText();
+    }
+    
+    /**
+     * Sets the display mode for this button.
+     * @param mode The display mode to use
+     */
+    public void setDisplayMode(ButtonDisplayMode mode) {
+        this.displayMode = mode;
+        updateDisplayedText();
+    }
+    
+    /**
+     * @return The current display mode
+     */
+    public ButtonDisplayMode getDisplayMode() {
+        return displayMode;
+    }
+    
+    /**
+     * Updates the displayed text based on the display mode and button size.
+     */
+    public void updateDisplayedText() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.textRenderer == null) {
+            setMessage(Text.literal(icon));
+            return;
+        }
+        
+        boolean showName = switch (displayMode) {
+            case ICON_ONLY -> false;
+            case NAME_AND_ICON -> true;
+            case AUTO -> {
+                // Auto: show name if button is wide enough
+                int nameWidth = client.textRenderer.getWidth(actionDescription);
+                int minWidth = ButtonDisplayMode.getMinWidthForNameAndIcon(nameWidth);
+                yield width >= minWidth;
+            }
+        };
+        
+        if (showName) {
+            setMessage(Text.literal(icon + " " + actionDescription));
+        } else {
+            setMessage(Text.literal(icon));
+        }
+    }
+    
+    /**
+     * @return The icon string
+     */
+    public String getIcon() {
+        return icon;
     }
 
     /**
@@ -198,6 +257,7 @@ public class BoosterButton extends ButtonWidget implements DraggableWidget {
     public void setEditorSize(int width, int height) {
         this.width = width;
         this.height = height;
+        updateDisplayedText();
     }
 
     @Override

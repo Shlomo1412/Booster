@@ -105,6 +105,9 @@ public class SortInventoryModule extends GUIModule {
             this::onModeChanged
         );
         
+        // Apply display mode from settings
+        sortButton.setDisplayMode(settings.getDisplayMode());
+        
         // Set editor info with the inventory section as the anchor for dragging
         // This ensures the saved offset is relative to the inventory section, not container top
         int editorAnchorY = anchorY + inventorySectionOffset;

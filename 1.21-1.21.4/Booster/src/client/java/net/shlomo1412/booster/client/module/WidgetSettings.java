@@ -1,5 +1,7 @@
 package net.shlomo1412.booster.client.module;
 
+import net.shlomo1412.booster.client.widget.ButtonDisplayMode;
+
 /**
  * Stores position and size settings for an individual widget.
  * Each widget in a module can have its own settings.
@@ -9,12 +11,14 @@ public class WidgetSettings {
     private int offsetY;
     private int width;
     private int height;
+    private ButtonDisplayMode displayMode;
     
     // Defaults for resetting
     private final int defaultOffsetX;
     private final int defaultOffsetY;
     private final int defaultWidth;
     private final int defaultHeight;
+    private static final ButtonDisplayMode DEFAULT_DISPLAY_MODE = ButtonDisplayMode.AUTO;
     
     public WidgetSettings(int defaultOffsetX, int defaultOffsetY, int defaultWidth, int defaultHeight) {
         this.defaultOffsetX = defaultOffsetX;
@@ -26,6 +30,7 @@ public class WidgetSettings {
         this.offsetY = defaultOffsetY;
         this.width = defaultWidth;
         this.height = defaultHeight;
+        this.displayMode = DEFAULT_DISPLAY_MODE;
     }
     
     // Copy constructor for cloning defaults
@@ -39,17 +44,20 @@ public class WidgetSettings {
         this.offsetY = other.offsetY;
         this.width = other.width;
         this.height = other.height;
+        this.displayMode = other.displayMode;
     }
     
     public int getOffsetX() { return offsetX; }
     public int getOffsetY() { return offsetY; }
     public int getWidth() { return width; }
     public int getHeight() { return height; }
+    public ButtonDisplayMode getDisplayMode() { return displayMode; }
     
     public void setOffsetX(int offsetX) { this.offsetX = offsetX; }
     public void setOffsetY(int offsetY) { this.offsetY = offsetY; }
     public void setWidth(int width) { this.width = width; }
     public void setHeight(int height) { this.height = height; }
+    public void setDisplayMode(ButtonDisplayMode mode) { this.displayMode = mode; }
     
     public void setOffset(int x, int y) {
         this.offsetX = x;
@@ -71,13 +79,19 @@ public class WidgetSettings {
         this.height = defaultHeight;
     }
     
+    public void resetDisplayMode() {
+        this.displayMode = DEFAULT_DISPLAY_MODE;
+    }
+    
     public void reset() {
         resetOffset();
         resetSize();
+        resetDisplayMode();
     }
     
     public int getDefaultOffsetX() { return defaultOffsetX; }
     public int getDefaultOffsetY() { return defaultOffsetY; }
     public int getDefaultWidth() { return defaultWidth; }
     public int getDefaultHeight() { return defaultHeight; }
+    public ButtonDisplayMode getDefaultDisplayMode() { return DEFAULT_DISPLAY_MODE; }
 }

@@ -54,6 +54,9 @@ public class SaveQuitToServersModule extends GUIModule {
             }
         );
         
+        // Apply display mode from settings
+        saveQuitButton.setDisplayMode(settings.getDisplayMode());
+        
         saveQuitButton.setEditorInfo(this, SAVE_QUIT_SERVERS_WIDGET_ID, "Quit to Servers", anchorX, anchorY);
         
         addDrawableChild.accept(saveQuitButton);

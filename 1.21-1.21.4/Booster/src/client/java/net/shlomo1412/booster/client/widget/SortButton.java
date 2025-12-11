@@ -18,13 +18,18 @@ import java.util.function.Consumer;
 /**
  * A button widget specifically for sorting functionality.
  * Supports Alt+Scroll to change sort mode.
+ * Supports display modes: Icon Only, Name + Icon, Automatic.
  */
 public class SortButton extends ButtonWidget implements DraggableWidget {
     
     private final String baseIcon;
+    private final String actionDescription;
     private SortMode currentMode;
     private final Consumer<SortMode> onSort;
     private final Runnable onModeChanged;
+    
+    // Display mode
+    private ButtonDisplayMode displayMode = ButtonDisplayMode.AUTO;
     
     // Editor mode support
     private GUIModule parentModule;
@@ -56,11 +61,56 @@ public class SortButton extends ButtonWidget implements DraggableWidget {
         super(x, y, width, height, Text.literal(icon), 
               button -> onSort.accept(initialMode), DEFAULT_NARRATION_SUPPLIER);
         this.baseIcon = icon;
+        this.actionDescription = displayName;
         this.displayName = displayName;
         this.currentMode = initialMode;
         this.onSort = onSort;
         this.onModeChanged = onModeChanged;
         updateTooltips();
+        updateDisplayedText();
+    }
+    
+    /**
+     * Sets the display mode for this button.
+     */
+    public void setDisplayMode(ButtonDisplayMode mode) {
+        this.displayMode = mode;
+        updateDisplayedText();
+    }
+    
+    /**
+     * @return The current display mode
+     */
+    public ButtonDisplayMode getDisplayMode() {
+        return displayMode;
+    }
+    
+    /**
+     * Updates the displayed text based on the display mode and button size.
+     */
+    public void updateDisplayedText() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.textRenderer == null) {
+            setMessage(Text.literal(baseIcon));
+            return;
+        }
+        
+        boolean showName = switch (displayMode) {
+            case ICON_ONLY -> false;
+            case NAME_AND_ICON -> true;
+            case AUTO -> {
+                // Auto: show name if button is wide enough
+                int nameWidth = client.textRenderer.getWidth(actionDescription);
+                int minWidth = ButtonDisplayMode.getMinWidthForNameAndIcon(nameWidth);
+                yield width >= minWidth;
+            }
+        };
+        
+        if (showName) {
+            setMessage(Text.literal(baseIcon + " " + actionDescription));
+        } else {
+            setMessage(Text.literal(baseIcon));
+        }
     }
     
     /**
@@ -278,6 +328,7 @@ public class SortButton extends ButtonWidget implements DraggableWidget {
     public void setEditorSize(int width, int height) {
         this.width = width;
         this.height = height;
+        updateDisplayedText();
     }
 
     @Override

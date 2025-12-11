@@ -54,6 +54,9 @@ public class SaveQuitToWorldsModule extends GUIModule {
             }
         );
         
+        // Apply display mode from settings
+        saveQuitButton.setDisplayMode(settings.getDisplayMode());
+        
         saveQuitButton.setEditorInfo(this, SAVE_QUIT_WORLDS_WIDGET_ID, "Save & Quit to Worlds", anchorX, anchorY);
         
         addDrawableChild.accept(saveQuitButton);

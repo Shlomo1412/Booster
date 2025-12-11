@@ -52,6 +52,9 @@ public class SaveQuitGameModule extends GUIModule {
             }
         );
         
+        // Apply display mode from settings
+        saveQuitButton.setDisplayMode(settings.getDisplayMode());
+        
         saveQuitButton.setEditorInfo(this, SAVE_QUIT_GAME_WIDGET_ID, "Save & Quit Game", anchorX, anchorY);
         
         addDrawableChild.accept(saveQuitButton);

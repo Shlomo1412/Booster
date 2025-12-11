@@ -16,8 +16,8 @@ public abstract class GUIModule extends Module {
     // Per-widget settings stored by widget ID
     private final Map<String, WidgetSettings> widgetSettings = new HashMap<>();
     
-    // Loaded values from config (before defaults are known)
-    private final Map<String, int[]> loadedWidgetValues = new HashMap<>();
+    // Loaded values from config (before defaults are known) - Object[] for int values + display mode
+    private final Map<String, Object[]> loadedWidgetValues = new HashMap<>();
     
     // Module settings (colors, enums, etc.) - LinkedHashMap preserves insertion order
     private final Map<String, ModuleSetting<?>> moduleSettings = new LinkedHashMap<>();
@@ -59,10 +59,13 @@ public abstract class GUIModule extends Module {
             settings = new WidgetSettings(defaultOffsetX, defaultOffsetY, defaultWidth, defaultHeight);
             
             // Apply loaded values if any
-            int[] loaded = loadedWidgetValues.remove(widgetId);
+            Object[] loaded = loadedWidgetValues.remove(widgetId);
             if (loaded != null) {
-                settings.setOffset(loaded[0], loaded[1]);
-                settings.setSize(loaded[2], loaded[3]);
+                settings.setOffset((Integer) loaded[0], (Integer) loaded[1]);
+                settings.setSize((Integer) loaded[2], (Integer) loaded[3]);
+                if (loaded.length > 4 && loaded[4] != null) {
+                    settings.setDisplayMode((net.shlomo1412.booster.client.widget.ButtonDisplayMode) loaded[4]);
+                }
             }
             
             widgetSettings.put(widgetId, settings);
@@ -75,7 +78,16 @@ public abstract class GUIModule extends Module {
      * Values are stored temporarily until getWidgetSettings is called with defaults.
      */
     public void loadWidgetSettings(String widgetId, int offsetX, int offsetY, int width, int height) {
-        loadedWidgetValues.put(widgetId, new int[] { offsetX, offsetY, width, height });
+        loadWidgetSettings(widgetId, offsetX, offsetY, width, height, net.shlomo1412.booster.client.widget.ButtonDisplayMode.AUTO);
+    }
+    
+    /**
+     * Loads widget settings from config with display mode (before defaults are known).
+     * Values are stored temporarily until getWidgetSettings is called with defaults.
+     */
+    public void loadWidgetSettings(String widgetId, int offsetX, int offsetY, int width, int height, 
+                                   net.shlomo1412.booster.client.widget.ButtonDisplayMode displayMode) {
+        loadedWidgetValues.put(widgetId, new Object[] { offsetX, offsetY, width, height, displayMode });
     }
     
     /**
@@ -124,6 +136,17 @@ public abstract class GUIModule extends Module {
         WidgetSettings settings = widgetSettings.get(widgetId);
         if (settings != null) {
             settings.setSize(width, height);
+            ModuleManager.getInstance().saveConfig();
+        }
+    }
+    
+    /**
+     * Updates widget display mode and triggers config save.
+     */
+    public void updateWidgetDisplayMode(String widgetId, net.shlomo1412.booster.client.widget.ButtonDisplayMode mode) {
+        WidgetSettings settings = widgetSettings.get(widgetId);
+        if (settings != null) {
+            settings.setDisplayMode(mode);
             ModuleManager.getInstance().saveConfig();
         }
     }

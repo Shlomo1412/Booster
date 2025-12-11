@@ -67,6 +67,9 @@ public class CopyIPModule extends GUIModule {
             }
         );
         
+        // Apply display mode from settings
+        copyButton.setDisplayMode(settings.getDisplayMode());
+        
         copyButton.setEditorInfo(this, COPY_IP_WIDGET_ID, "Copy IP", anchorX, anchorY);
         
         addDrawableChild.accept(copyButton);

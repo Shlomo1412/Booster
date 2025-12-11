@@ -59,6 +59,9 @@ public class ClearGridModule extends GUIModule {
             button -> clearGrid(screen)
         );
         
+        // Apply display mode from settings
+        clearButton.setDisplayMode(settings.getDisplayMode());
+        
         // Set editor info for dragging
         clearButton.setEditorInfo(this, CLEAR_GRID_WIDGET_ID, "Clear Grid", anchorX, anchorY);
         EditorModeManager.getInstance().registerDraggableWidget(clearButton);

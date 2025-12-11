@@ -79,6 +79,9 @@ public class SortContainerModule extends GUIModule {
             this::onModeChanged
         );
         
+        // Apply display mode from settings
+        sortButton.setDisplayMode(settings.getDisplayMode());
+        
         sortButton.setEditorInfo(this, SORT_CONTAINER_WIDGET_ID, "Sort Container", anchorX, anchorY);
         
         addDrawableChild.accept(sortButton);

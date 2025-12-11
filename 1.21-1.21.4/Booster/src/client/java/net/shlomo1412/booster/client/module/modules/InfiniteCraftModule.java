@@ -3,6 +3,7 @@ package net.shlomo1412.booster.client.module.modules;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.CraftingScreenHandler;
 import net.minecraft.screen.slot.Slot;
@@ -18,17 +19,37 @@ import java.util.function.Consumer;
 /**
  * Module that adds an Infinite Craft button to the crafting table screen.
  * Continuously crafts the current recipe until materials run out or inventory is full.
+ * 
+ * Process:
+ * 1. Detect the current crafting grid pattern (items in slots 1-9)
+ * 2. Craft the output (shift-click slot 0)
+ * 3. Refill the grid with the same materials from player inventory
+ * 4. Repeat until materials run out
  */
 public class InfiniteCraftModule extends GUIModule {
     
     public static final String INFINITE_CRAFT_WIDGET_ID = "infinite_craft";
     
+    // Crafting states
+    private enum CraftState {
+        IDLE,           // Not crafting
+        SAVING_PATTERN, // About to save the grid pattern
+        CRAFTING,       // Performing the craft (shift-click output)
+        REFILLING,      // Refilling the grid with materials
+        WAITING         // Waiting between operations
+    }
+    
     // Settings
     private final ModuleSetting.NumberSetting delaySetting;
     
     private BoosterButton infiniteButton;
-    private boolean isCrafting = false;
-    private int craftDelay = 0;
+    private CraftState craftState = CraftState.IDLE;
+    private int tickDelay = 0;
+    
+    // Saved pattern: stores the Item for each slot (null if empty)
+    // Slots 1-9 in CraftingScreenHandler are the 3x3 grid
+    private Item[] savedPattern = new Item[9];
+    private int currentRefillSlot = 0;  // Which grid slot we're currently refilling (0-8)
     
     public InfiniteCraftModule() {
         super(
@@ -77,10 +98,14 @@ public class InfiniteCraftModule extends GUIModule {
             "∞",  // Infinity icon
             "Infinite Craft",
             "Click to toggle continuous crafting.\n" +
-            "Keeps crafting until materials run out\n" +
-            "or your inventory is full.",
+            "Saves the current grid pattern, crafts,\n" +
+            "then refills the grid with the same items.\n" +
+            "Repeats until materials run out.",
             button -> toggleInfiniteCraft(screen)
         );
+        
+        // Apply display mode from settings
+        infiniteButton.setDisplayMode(settings.getDisplayMode());
         
         // Set editor info for dragging
         infiniteButton.setEditorInfo(this, INFINITE_CRAFT_WIDGET_ID, "Infinite Craft", anchorX, anchorY);
@@ -93,13 +118,15 @@ public class InfiniteCraftModule extends GUIModule {
      * Toggles infinite crafting on/off.
      */
     private void toggleInfiniteCraft(HandledScreen<?> screen) {
-        isCrafting = !isCrafting;
-        updateButtonAppearance();
-        
-        if (isCrafting) {
-            // Start crafting loop
-            craftDelay = 0;
+        if (craftState == CraftState.IDLE) {
+            // Start crafting - first save the pattern
+            craftState = CraftState.SAVING_PATTERN;
+            tickDelay = 0;
+        } else {
+            // Stop crafting
+            stopCrafting();
         }
+        updateButtonAppearance();
     }
     
     /**
@@ -107,8 +134,10 @@ public class InfiniteCraftModule extends GUIModule {
      */
     private void updateButtonAppearance() {
         if (infiniteButton != null) {
-            // Visual feedback - could be enhanced with different text/color
-            infiniteButton.setMessage(net.minecraft.text.Text.literal(isCrafting ? "■" : "∞"));
+            // Visual feedback - stop icon when crafting, infinity when idle
+            infiniteButton.setMessage(net.minecraft.text.Text.literal(
+                craftState != CraftState.IDLE ? "■" : "∞"
+            ));
         }
     }
     
@@ -117,7 +146,7 @@ public class InfiniteCraftModule extends GUIModule {
      * Should be called from the screen's tick or render method.
      */
     public void tick(HandledScreen<?> screen) {
-        if (!isCrafting || !isEnabled()) {
+        if (craftState == CraftState.IDLE || !isEnabled()) {
             return;
         }
         
@@ -132,37 +161,164 @@ public class InfiniteCraftModule extends GUIModule {
             return;
         }
         
-        // Apply delay
-        if (craftDelay > 0) {
-            craftDelay--;
+        // Apply delay between operations
+        if (tickDelay > 0) {
+            tickDelay--;
             return;
         }
         
-        // Check if there's a valid recipe output
-        Slot outputSlot = craftingHandler.getSlot(0);
-        if (!outputSlot.hasStack()) {
-            // No recipe result - stop crafting
-            stopCrafting();
-            return;
+        switch (craftState) {
+            case SAVING_PATTERN -> {
+                saveGridPattern(craftingHandler);
+                // Check if there's actually a recipe
+                if (!craftingHandler.getSlot(0).hasStack()) {
+                    stopCrafting();
+                    return;
+                }
+                craftState = CraftState.CRAFTING;
+                tickDelay = 1;
+            }
+            
+            case CRAFTING -> {
+                // Check if there's a valid recipe output
+                Slot outputSlot = craftingHandler.getSlot(0);
+                if (!outputSlot.hasStack()) {
+                    // No recipe result - stop crafting
+                    stopCrafting();
+                    return;
+                }
+                
+                // Check if player inventory has space
+                if (!hasInventorySpace(client, outputSlot.getStack())) {
+                    stopCrafting();
+                    return;
+                }
+                
+                // Perform the craft (shift-click output slot)
+                client.interactionManager.clickSlot(
+                    craftingHandler.syncId,
+                    0,  // Output slot
+                    0,
+                    SlotActionType.QUICK_MOVE,
+                    client.player
+                );
+                
+                // Now transition to refilling
+                craftState = CraftState.REFILLING;
+                currentRefillSlot = 0;
+                tickDelay = 1;
+            }
+            
+            case REFILLING -> {
+                // Refill one slot at a time
+                if (!refillNextSlot(client, craftingHandler)) {
+                    // Failed to refill - no more materials
+                    stopCrafting();
+                    return;
+                }
+                
+                currentRefillSlot++;
+                if (currentRefillSlot >= 9) {
+                    // All slots refilled - back to crafting
+                    craftState = CraftState.WAITING;
+                    tickDelay = delaySetting.getValue();
+                } else {
+                    tickDelay = 1;  // Small delay between slot refills
+                }
+            }
+            
+            case WAITING -> {
+                // Wait completed, check if there's still a valid recipe
+                if (craftingHandler.getSlot(0).hasStack()) {
+                    craftState = CraftState.CRAFTING;
+                } else {
+                    stopCrafting();
+                }
+            }
+            
+            default -> stopCrafting();
+        }
+    }
+    
+    /**
+     * Saves the current crafting grid pattern.
+     * Stores which item type is in each slot (1-9).
+     */
+    private void saveGridPattern(CraftingScreenHandler handler) {
+        for (int i = 0; i < 9; i++) {
+            Slot slot = handler.getSlot(i + 1);  // Slots 1-9 are the crafting grid
+            if (slot.hasStack()) {
+                savedPattern[i] = slot.getStack().getItem();
+            } else {
+                savedPattern[i] = null;
+            }
+        }
+    }
+    
+    /**
+     * Attempts to refill the next slot that needs an item.
+     * @return true if slot was empty or successfully refilled, false if couldn't find item
+     */
+    private boolean refillNextSlot(MinecraftClient client, CraftingScreenHandler handler) {
+        // Get the item that should be in this slot
+        Item neededItem = savedPattern[currentRefillSlot];
+        
+        // If no item needed in this slot, skip it
+        if (neededItem == null) {
+            return true;
         }
         
-        // Check if player inventory has space
-        if (!hasInventorySpace(client, outputSlot.getStack())) {
-            stopCrafting();
-            return;
+        // Check if slot already has the item
+        Slot gridSlot = handler.getSlot(currentRefillSlot + 1);  // Slots 1-9
+        if (gridSlot.hasStack() && gridSlot.getStack().getItem() == neededItem) {
+            return true;  // Already has the right item
         }
         
-        // Perform the craft (shift-click output slot)
-        client.interactionManager.clickSlot(
-            craftingHandler.syncId,
-            0,  // Output slot
-            0,
-            SlotActionType.QUICK_MOVE,
-            client.player
-        );
+        // Find the item in player inventory and move it to the crafting grid
+        // Player inventory slots in CraftingScreenHandler: 10-36 (main inventory) and 37-45 (hotbar)
+        // Actually: crafting output=0, grid=1-9, player inv=10-36, hotbar=37-45
         
-        // Set delay for next craft
-        craftDelay = delaySetting.getValue();
+        // Search player inventory for the item
+        for (int invSlot = 10; invSlot <= 45; invSlot++) {
+            Slot slot = handler.getSlot(invSlot);
+            if (slot.hasStack() && slot.getStack().getItem() == neededItem) {
+                // Found the item! Move it to the crafting grid
+                // Pick up the stack
+                client.interactionManager.clickSlot(
+                    handler.syncId,
+                    invSlot,
+                    0,
+                    SlotActionType.PICKUP,
+                    client.player
+                );
+                
+                // Place one item in the grid slot (right-click to place one)
+                client.interactionManager.clickSlot(
+                    handler.syncId,
+                    currentRefillSlot + 1,  // Grid slots 1-9
+                    1,  // Right-click to place one
+                    SlotActionType.PICKUP,
+                    client.player
+                );
+                
+                // Put remaining items back
+                if (client.player.currentScreenHandler.getCursorStack() != null && 
+                    !client.player.currentScreenHandler.getCursorStack().isEmpty()) {
+                    client.interactionManager.clickSlot(
+                        handler.syncId,
+                        invSlot,
+                        0,
+                        SlotActionType.PICKUP,
+                        client.player
+                    );
+                }
+                
+                return true;
+            }
+        }
+        
+        // Couldn't find the item
+        return false;
     }
     
     /**
@@ -196,7 +352,10 @@ public class InfiniteCraftModule extends GUIModule {
      * Stops the infinite crafting process.
      */
     public void stopCrafting() {
-        isCrafting = false;
+        craftState = CraftState.IDLE;
+        tickDelay = 0;
+        currentRefillSlot = 0;
+        savedPattern = new Item[9];
         updateButtonAppearance();
     }
     
@@ -204,7 +363,7 @@ public class InfiniteCraftModule extends GUIModule {
      * @return Whether infinite crafting is currently active
      */
     public boolean isCrafting() {
-        return isCrafting;
+        return craftState != CraftState.IDLE;
     }
     
     /**

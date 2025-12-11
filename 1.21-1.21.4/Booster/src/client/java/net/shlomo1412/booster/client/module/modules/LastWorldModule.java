@@ -108,6 +108,9 @@ public class LastWorldModule extends GUIModule {
             }
         );
         
+        // Apply display mode from settings
+        lastWorldButton.setDisplayMode(settings.getDisplayMode());
+        
         lastWorldButton.active = hasLastWorld();
         lastWorldButton.setEditorInfo(this, LAST_WORLD_WIDGET_ID, "Last World", anchorX, anchorY);
         

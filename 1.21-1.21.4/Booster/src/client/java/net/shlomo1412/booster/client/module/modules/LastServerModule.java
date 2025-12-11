@@ -107,6 +107,9 @@ public class LastServerModule extends GUIModule {
             }
         );
         
+        // Apply display mode from settings
+        lastServerButton.setDisplayMode(settings.getDisplayMode());
+        
         lastServerButton.active = hasLastServer();
         lastServerButton.setEditorInfo(this, LAST_SERVER_WIDGET_ID, "Last Server", anchorX, anchorY);
         

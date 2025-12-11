@@ -135,6 +135,7 @@ public class BoosterConfig {
                     widgetData.addProperty("offsetY", widgetSettings.getOffsetY());
                     widgetData.addProperty("width", widgetSettings.getWidth());
                     widgetData.addProperty("height", widgetSettings.getHeight());
+                    widgetData.addProperty("displayMode", widgetSettings.getDisplayMode().name());
                     
                     widgetsObject.add(widgetId, widgetData);
                 }
@@ -263,8 +264,18 @@ public class BoosterConfig {
                             int width = widgetData.has("width") ? widgetData.get("width").getAsInt() : guiModule.getDefaultWidth();
                             int height = widgetData.has("height") ? widgetData.get("height").getAsInt() : guiModule.getDefaultHeight();
                             
+                            // Load display mode
+                            net.shlomo1412.booster.client.widget.ButtonDisplayMode displayMode = 
+                                net.shlomo1412.booster.client.widget.ButtonDisplayMode.AUTO;
+                            if (widgetData.has("displayMode")) {
+                                try {
+                                    displayMode = net.shlomo1412.booster.client.widget.ButtonDisplayMode.valueOf(
+                                        widgetData.get("displayMode").getAsString());
+                                } catch (IllegalArgumentException ignored) {}
+                            }
+                            
                             // Load widget settings - actual defaults will be set when createButtons is called
-                            guiModule.loadWidgetSettings(widgetId, offsetX, offsetY, width, height);
+                            guiModule.loadWidgetSettings(widgetId, offsetX, offsetY, width, height, displayMode);
                         }
                     }
                     
