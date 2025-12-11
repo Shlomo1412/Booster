@@ -21,6 +21,7 @@ import net.shlomo1412.booster.client.editor.widget.EditorGuide;
 import net.shlomo1412.booster.client.editor.widget.EditorSidebar;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.ModuleManager;
+import net.shlomo1412.booster.client.module.modules.AutoArmorModule;
 import net.shlomo1412.booster.client.module.modules.ClearGridModule;
 import net.shlomo1412.booster.client.module.modules.InfiniteCraftModule;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
@@ -100,6 +101,10 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     
     @Unique
     private InfiniteCraftModule booster$infiniteCraftModule;
+    
+    // Player inventory modules
+    @Unique
+    private AutoArmorModule booster$autoArmorModule;
 
     // Required for extending Screen
     protected HandledScreenMixin() {
@@ -127,6 +132,7 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         booster$progressBarWidget = null;
         booster$clearGridModule = null;
         booster$infiniteCraftModule = null;
+        booster$autoArmorModule = null;
 
         // Determine screen type
         boolean isContainerScreen = handler instanceof GenericContainerScreenHandler;
@@ -251,6 +257,23 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                 );
             }
         }
+        
+        // Add Auto Armor button (player inventory only)
+        if (isPlayerInventory) {
+            booster$autoArmorModule = ModuleManager.getInstance().getModule(AutoArmorModule.class);
+            if (booster$autoArmorModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$autoArmorModule.isEnabled()) {
+                    booster$autoArmorModule.createButton(
+                        self,
+                        x + backgroundWidth,  // Right edge of inventory
+                        y,
+                        button -> this.addDrawableChild(button)
+                    );
+                }
+            }
+        }
 
         // Add Edit and Config buttons at TOP-RIGHT of SCREEN (not container)
         if (booster$hasBoosterContent) {
@@ -329,6 +352,14 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                 }
             }
             
+            // Auto Armor works on player inventory screen only
+            if (handler instanceof PlayerScreenHandler) {
+                AutoArmorModule autoArmor = ModuleManager.getInstance().getModule(AutoArmorModule.class);
+                if (autoArmor != null) {
+                    activeModules.add(autoArmor);
+                }
+            }
+            
             ScreenInfo screenInfo = new ScreenInfo(this, x, y, backgroundWidth, backgroundHeight);
             booster$editorSidebar = new EditorSidebar(
                 MinecraftClient.getInstance(), 
@@ -366,6 +397,11 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         // Tick infinite craft module (handles continuous crafting)
         if (booster$infiniteCraftModule != null && booster$infiniteCraftModule.isEnabled()) {
             booster$infiniteCraftModule.tick((HandledScreen<?>) (Object) this);
+        }
+        
+        // Tick auto armor module (handles automatic armor equipping)
+        if (booster$autoArmorModule != null && booster$autoArmorModule.isEnabled()) {
+            booster$autoArmorModule.tick((HandledScreen<?>) (Object) this);
         }
         
         // Render inventory progress bar widget (if enabled)

@@ -7,8 +7,10 @@ import net.shlomo1412.booster.client.module.modules.ClearGridModule;
 import net.shlomo1412.booster.client.module.modules.CopyIPModule;
 import net.shlomo1412.booster.client.module.modules.InfiniteCraftModule;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
+import net.shlomo1412.booster.client.module.modules.AutoArmorModule;
 import net.shlomo1412.booster.client.module.modules.LastServerModule;
 import net.shlomo1412.booster.client.module.modules.LastWorldModule;
+import net.shlomo1412.booster.client.module.modules.OpenScreenshotsModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitGameModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToServersModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToWorldsModule;
@@ -58,6 +60,9 @@ public class BoosterClient implements ClientModInitializer {
         manager.register(new ClearGridModule());
         manager.register(new InfiniteCraftModule());
         
+        // GUI Modules - Player Inventory Screen
+        manager.register(new AutoArmorModule());
+        
         // Title Screen Modules
         manager.register(new LastServerModule());
         manager.register(new LastWorldModule());
@@ -69,6 +74,7 @@ public class BoosterClient implements ClientModInitializer {
         manager.register(new SaveQuitGameModule());
         manager.register(new SaveQuitToWorldsModule());
         manager.register(new SaveQuitToServersModule());
+        manager.register(new OpenScreenshotsModule());
         
         // Add more modules here as they are created
     }

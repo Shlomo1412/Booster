@@ -12,6 +12,7 @@ import net.shlomo1412.booster.client.editor.widget.EditButton;
 import net.shlomo1412.booster.client.editor.widget.EditorSidebar;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.ModuleManager;
+import net.shlomo1412.booster.client.module.modules.OpenScreenshotsModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitGameModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToServersModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToWorldsModule;
@@ -49,6 +50,9 @@ public abstract class GameMenuScreenMixin extends Screen {
     private SaveQuitToServersModule booster$saveQuitToServersModule;
     
     @Unique
+    private OpenScreenshotsModule booster$openScreenshotsModule;
+    
+    @Unique
     private boolean booster$hasBoosterContent = false;
 
     protected GameMenuScreenMixin(net.minecraft.text.Text title) {
@@ -69,6 +73,7 @@ public abstract class GameMenuScreenMixin extends Screen {
         booster$saveQuitGameModule = null;
         booster$saveQuitToWorldsModule = null;
         booster$saveQuitToServersModule = null;
+        booster$openScreenshotsModule = null;
         booster$editorSidebar = null;
         
         GameMenuScreen self = (GameMenuScreen) (Object) this;
@@ -118,6 +123,18 @@ public abstract class GameMenuScreenMixin extends Screen {
                 );
             }
         }
+        
+        // Add Open Screenshots button (works for both SP and MP)
+        booster$openScreenshotsModule = ModuleManager.getInstance().getModule(OpenScreenshotsModule.class);
+        if (booster$openScreenshotsModule != null && booster$openScreenshotsModule.isEnabled()) {
+            booster$hasBoosterContent = true;
+            booster$openScreenshotsModule.createButton(
+                self,
+                anchorX,
+                anchorY + 24,  // Below the first row of buttons
+                button -> this.addDrawableChild(button)
+            );
+        }
 
         // Add Edit and Config buttons at BOTTOM-LEFT corner
         if (booster$hasBoosterContent) {
@@ -150,6 +167,9 @@ public abstract class GameMenuScreenMixin extends Screen {
             }
             if (booster$saveQuitToServersModule != null) {
                 activeModules.add(booster$saveQuitToServersModule);
+            }
+            if (booster$openScreenshotsModule != null) {
+                activeModules.add(booster$openScreenshotsModule);
             }
             
             ScreenInfo screenInfo = new ScreenInfo(this, 0, 0, this.width, this.height);
