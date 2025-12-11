@@ -182,17 +182,17 @@ public class SwitchWorldModule extends GUIModule {
         
         if (recentWorlds.isEmpty()) {
             // Show "No worlds" message
-            context.fill(x, y, x + width, y + itemHeight, 0xE0202020);
-            context.drawBorder(x, y, width, itemHeight, 0xFF404040);
+            context.fill(x, y, x + width, y + itemHeight, 0xF0101010);
+            context.drawBorder(x, y, width, itemHeight, 0xFF606060);
             context.drawCenteredTextWithShadow(client.textRenderer, "No other worlds", x + width/2, y + 6, 0x888888);
             return;
         }
         
         int totalHeight = recentWorlds.size() * itemHeight;
         
-        // Background
-        context.fill(x, y, x + width, y + totalHeight, 0xE0202020);
-        context.drawBorder(x, y, width, totalHeight, 0xFF404040);
+        // Background (more opaque for better readability)
+        context.fill(x, y, x + width, y + totalHeight, 0xF0101010);
+        context.drawBorder(x, y, width, totalHeight, 0xFF606060);
         
         // Render each world entry
         for (int i = 0; i < recentWorlds.size(); i++) {

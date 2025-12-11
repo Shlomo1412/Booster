@@ -9,7 +9,9 @@
     "HandledScreenMixin",
     "TitleScreenMixin",
     "MultiplayerScreenMixin",
-    "GameMenuScreenMixin"
+    "GameMenuScreenMixin",
+    "ClientPlayNetworkHandlerMixin",
+    "IntegratedServerLoaderMixin"
   ],
   "injectors": {
     "defaultRequire": 1

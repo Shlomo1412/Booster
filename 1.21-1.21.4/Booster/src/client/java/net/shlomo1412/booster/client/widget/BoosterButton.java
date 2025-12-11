@@ -282,6 +282,31 @@ public class BoosterButton extends ButtonWidget implements DraggableWidget {
     public String getDisplayName() {
         return displayName;
     }
+    
+    // ============================================
+    // DraggableWidget interface method implementations
+    // Explicitly implement these to bridge ButtonWidget methods to the interface
+    // ============================================
+    
+    @Override
+    public int getX() {
+        return super.getX();
+    }
+    
+    @Override
+    public int getY() {
+        return super.getY();
+    }
+    
+    @Override
+    public int getWidth() {
+        return super.getWidth();
+    }
+    
+    @Override
+    public int getHeight() {
+        return super.getHeight();
+    }
 
     /**
      * Updates the anchor position (call when screen is resized).
