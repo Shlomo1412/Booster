@@ -1,5 +1,6 @@
 package net.shlomo1412.booster.client.editor;
 
+import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.Screen;
 import net.shlomo1412.booster.client.module.GUIModule;
 
@@ -36,6 +37,9 @@ public class EditorModeManager {
 
     // Listeners for editor mode changes
     private final List<Consumer<Boolean>> editorModeListeners = new ArrayList<>();
+
+    // Current sidebar element for mouse event delegation
+    private Element currentSidebar = null;
 
     private EditorModeManager() {
     }
@@ -344,5 +348,27 @@ public class EditorModeManager {
         selectedWidget = null;
         isDragging = false;
         draggableWidgets.clear();
+        currentSidebar = null;
+    }
+
+    /**
+     * Sets the current sidebar element for mouse event delegation.
+     */
+    public void setCurrentSidebar(Element sidebar) {
+        this.currentSidebar = sidebar;
+    }
+
+    /**
+     * @return The current sidebar element, or null if none
+     */
+    public Element getCurrentSidebar() {
+        return currentSidebar;
+    }
+
+    /**
+     * Clears the current sidebar.
+     */
+    public void clearCurrentSidebar() {
+        this.currentSidebar = null;
     }
 }

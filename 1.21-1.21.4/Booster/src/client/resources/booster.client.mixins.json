@@ -4,6 +4,8 @@
   "package": "net.shlomo1412.booster.mixin.client",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "ScreenMixin",
+    "ClickableWidgetMixin",
     "HandledScreenMixin",
     "TitleScreenMixin",
     "MultiplayerScreenMixin",

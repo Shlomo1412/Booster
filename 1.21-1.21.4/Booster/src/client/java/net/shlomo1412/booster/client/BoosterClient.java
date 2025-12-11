@@ -1,6 +1,7 @@
 package net.shlomo1412.booster.client;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.shlomo1412.booster.client.editor.ScreenEditorHandler;
 import net.shlomo1412.booster.client.module.ModuleManager;
 import net.shlomo1412.booster.client.module.modules.CopyIPModule;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
@@ -29,6 +30,9 @@ public class BoosterClient implements ClientModInitializer {
         
         // Initialize the module manager (loads config and triggers onEnable)
         ModuleManager.getInstance().initialize();
+        
+        // Initialize screen editor event handlers
+        ScreenEditorHandler.init();
         
         LOGGER.info("Booster client initialized with {} modules", 
                 ModuleManager.getInstance().getModules().size());
