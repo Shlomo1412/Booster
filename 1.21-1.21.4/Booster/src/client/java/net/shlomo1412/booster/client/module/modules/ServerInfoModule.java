@@ -159,73 +159,172 @@ public class ServerInfoModule extends GUIModule {
         if (!showingInfo || serverInfoButton == null) return;
         
         MinecraftClient client = MinecraftClient.getInstance();
-        int panelWidth = 200;
-        int panelHeight = 220;
-        int x = serverInfoButton.getX() - panelWidth - 5;
+        int panelWidth = 220;
+        int padding = 8;
+        int lineHeight = 12;
+        int sectionGap = 6;
+        
+        // Calculate dynamic height based on content
+        int contentHeight = calculatePanelHeight(client, lineHeight, sectionGap);
+        int panelHeight = contentHeight + padding * 2;
+        
+        int x = serverInfoButton.getX() - panelWidth - 8;
         int y = serverInfoButton.getY();
         
         // Keep panel on screen
-        if (x < 5) x = serverInfoButton.getX() + serverInfoButton.getWidth() + 5;
+        if (x < 5) x = serverInfoButton.getX() + serverInfoButton.getWidth() + 8;
         if (y + panelHeight > client.getWindow().getScaledHeight() - 5) {
             y = client.getWindow().getScaledHeight() - panelHeight - 5;
         }
         
-        // Background
-        context.fill(x, y, x + panelWidth, y + panelHeight, 0xE0202020);
-        context.drawBorder(x, y, panelWidth, panelHeight, 0xFF404040);
+        // Main background with gradient effect (darker at edges)
+        context.fill(x, y, x + panelWidth, y + panelHeight, 0xF0181818);
         
-        // Title
-        context.drawCenteredTextWithShadow(client.textRenderer, "§6§lServer Information", 
+        // Inner highlight border
+        context.fill(x + 1, y + 1, x + panelWidth - 1, y + 2, 0xFF3A3A3A);
+        context.fill(x + 1, y + 1, x + 2, y + panelHeight - 1, 0xFF3A3A3A);
+        
+        // Outer border
+        context.drawBorder(x, y, panelWidth, panelHeight, 0xFF505050);
+        
+        // Title bar background
+        context.fill(x + 1, y + 1, x + panelWidth - 1, y + 18, 0xFF252525);
+        context.fill(x + 1, y + 18, x + panelWidth - 1, y + 19, 0xFF404040);
+        
+        // Title with icon
+        context.drawCenteredTextWithShadow(client.textRenderer, "§6⚡ §e§lServer Info §6⚡", 
             x + panelWidth / 2, y + 5, 0xFFFFFF);
         
-        int textY = y + 20;
-        int lineHeight = 11;
+        int textY = y + 24;
+        int textX = x + padding;
+        int valueX = x + 70;
         
+        // Server section
         ServerInfo serverInfo = client.getCurrentServerEntry();
         if (serverInfo != null) {
-            context.drawTextWithShadow(client.textRenderer, "§7Name: §f" + serverInfo.name, x + 5, textY, 0xFFFFFF);
+            // Server name row
+            context.drawTextWithShadow(client.textRenderer, "§7Name:", textX, textY, 0xAAAAAA);
+            String name = truncateText(client, serverInfo.name, panelWidth - 80);
+            context.drawTextWithShadow(client.textRenderer, "§f" + name, valueX, textY, 0xFFFFFF);
             textY += lineHeight;
-            context.drawTextWithShadow(client.textRenderer, "§7Address: §f" + serverInfo.address, x + 5, textY, 0xFFFFFF);
-            textY += lineHeight;
+            
+            // Server address row
+            context.drawTextWithShadow(client.textRenderer, "§7Address:", textX, textY, 0xAAAAAA);
+            String addr = truncateText(client, serverInfo.address, panelWidth - 80);
+            context.drawTextWithShadow(client.textRenderer, "§b" + addr, valueX, textY, 0x55FFFF);
+            textY += lineHeight + sectionGap;
         }
+        
+        // Connection section with separator
+        drawSectionSeparator(context, x, textY - 2, panelWidth, "Connection");
+        textY += 10;
         
         ClientPlayNetworkHandler networkHandler = client.getNetworkHandler();
         if (networkHandler != null) {
             Collection<PlayerListEntry> players = networkHandler.getPlayerList();
-            context.drawTextWithShadow(client.textRenderer, "§7Players: §f" + players.size(), x + 5, textY, 0xFFFFFF);
+            
+            // Players online
+            context.drawTextWithShadow(client.textRenderer, "§7Players:", textX, textY, 0xAAAAAA);
+            context.drawTextWithShadow(client.textRenderer, "§a" + players.size() + " online", valueX, textY, 0x55FF55);
             textY += lineHeight;
             
+            // Server software
             String brand = networkHandler.getBrand();
             if (brand != null) {
-                context.drawTextWithShadow(client.textRenderer, "§7Server: §f" + brand, x + 5, textY, 0xFFFFFF);
+                context.drawTextWithShadow(client.textRenderer, "§7Software:", textX, textY, 0xAAAAAA);
+                String brandText = truncateText(client, brand, panelWidth - 80);
+                context.drawTextWithShadow(client.textRenderer, "§d" + brandText, valueX, textY, 0xFF55FF);
                 textY += lineHeight;
             }
-        }
-        
-        // Dev section
-        textY += 5;
-        context.drawTextWithShadow(client.textRenderer, "§6Dev Info", x + 5, textY, 0xFFFFFF);
-        textY += lineHeight;
-        
-        if (client.player != null && client.world != null) {
-            context.drawTextWithShadow(client.textRenderer, 
-                String.format("§7Pos: §f%.0f, %.0f, %.0f", 
-                    client.player.getX(), client.player.getY(), client.player.getZ()), 
-                x + 5, textY, 0xFFFFFF);
-            textY += lineHeight;
             
-            String dim = client.world.getRegistryKey().getValue().getPath();
-            context.drawTextWithShadow(client.textRenderer, "§7Dim: §f" + dim, x + 5, textY, 0xFFFFFF);
-            textY += lineHeight;
-            
-            if (networkHandler != null) {
+            // Ping
+            if (client.player != null) {
                 PlayerListEntry entry = networkHandler.getPlayerListEntry(client.player.getUuid());
                 if (entry != null) {
-                    context.drawTextWithShadow(client.textRenderer, "§7Ping: §f" + entry.getLatency() + "ms", 
-                        x + 5, textY, 0xFFFFFF);
+                    int ping = entry.getLatency();
+                    context.drawTextWithShadow(client.textRenderer, "§7Ping:", textX, textY, 0xAAAAAA);
+                    String pingColor = ping < 50 ? "§a" : ping < 150 ? "§e" : "§c";
+                    context.drawTextWithShadow(client.textRenderer, pingColor + ping + "ms", valueX, textY, 0xFFFFFF);
+                    textY += lineHeight;
                 }
             }
         }
+        
+        // World section
+        if (client.player != null && client.world != null) {
+            textY += sectionGap - 2;
+            drawSectionSeparator(context, x, textY - 2, panelWidth, "World");
+            textY += 10;
+            
+            // Position
+            context.drawTextWithShadow(client.textRenderer, "§7Position:", textX, textY, 0xAAAAAA);
+            String pos = String.format("§f%.0f §7/ §f%.0f §7/ §f%.0f", 
+                client.player.getX(), client.player.getY(), client.player.getZ());
+            context.drawTextWithShadow(client.textRenderer, pos, valueX, textY, 0xFFFFFF);
+            textY += lineHeight;
+            
+            // Dimension
+            String dim = client.world.getRegistryKey().getValue().getPath();
+            context.drawTextWithShadow(client.textRenderer, "§7Dimension:", textX, textY, 0xAAAAAA);
+            String dimColor = dim.contains("nether") ? "§c" : dim.contains("end") ? "§5" : "§2";
+            context.drawTextWithShadow(client.textRenderer, dimColor + formatDimension(dim), valueX, textY, 0xFFFFFF);
+            textY += lineHeight;
+            
+            // Difficulty
+            context.drawTextWithShadow(client.textRenderer, "§7Difficulty:", textX, textY, 0xAAAAAA);
+            String diff = client.world.getDifficulty().getName();
+            context.drawTextWithShadow(client.textRenderer, "§f" + capitalize(diff), valueX, textY, 0xFFFFFF);
+        }
+        
+        // Close hint at bottom
+        context.drawCenteredTextWithShadow(client.textRenderer, "§8Click anywhere to close", 
+            x + panelWidth / 2, y + panelHeight - 12, 0x666666);
+    }
+    
+    private int calculatePanelHeight(MinecraftClient client, int lineHeight, int sectionGap) {
+        int height = 24; // Title
+        height += lineHeight * 2 + sectionGap; // Server section
+        height += 10 + lineHeight * 3; // Connection section
+        if (client.player != null && client.world != null) {
+            height += sectionGap + 10 + lineHeight * 3; // World section
+        }
+        height += 16; // Close hint
+        return height;
+    }
+    
+    private void drawSectionSeparator(DrawContext context, int x, int y, int width, String label) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        int labelWidth = client.textRenderer.getWidth(label) + 8;
+        int lineY = y + 4;
+        
+        // Left line
+        context.fill(x + 8, lineY, x + 8 + 20, lineY + 1, 0xFF404040);
+        // Label
+        context.drawTextWithShadow(client.textRenderer, "§6" + label, x + 32, y, 0xFFAA00);
+        // Right line
+        context.fill(x + 32 + labelWidth, lineY, x + width - 8, lineY + 1, 0xFF404040);
+    }
+    
+    private String truncateText(MinecraftClient client, String text, int maxWidth) {
+        if (client.textRenderer.getWidth(text) <= maxWidth) return text;
+        while (client.textRenderer.getWidth(text + "...") > maxWidth && text.length() > 1) {
+            text = text.substring(0, text.length() - 1);
+        }
+        return text + "...";
+    }
+    
+    private String formatDimension(String dim) {
+        return switch (dim) {
+            case "overworld" -> "Overworld";
+            case "the_nether" -> "The Nether";
+            case "the_end" -> "The End";
+            default -> capitalize(dim.replace("_", " "));
+        };
+    }
+    
+    private String capitalize(String str) {
+        if (str == null || str.isEmpty()) return str;
+        return Character.toUpperCase(str.charAt(0)) + str.substring(1);
     }
     
     /**

@@ -8,6 +8,8 @@ import net.shlomo1412.booster.client.module.modules.ClearGridModule;
 import net.shlomo1412.booster.client.module.modules.ConnectToServerModule;
 import net.shlomo1412.booster.client.module.modules.CopyIPModule;
 import net.shlomo1412.booster.client.module.modules.DatapacksFolderModule;
+import net.shlomo1412.booster.client.module.modules.DeathCoordinatesModule;
+import net.shlomo1412.booster.client.module.modules.DeathInventoryModule;
 import net.shlomo1412.booster.client.module.modules.InfiniteCraftModule;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
 import net.shlomo1412.booster.client.module.modules.LastServerModule;
@@ -24,6 +26,7 @@ import net.shlomo1412.booster.client.module.modules.SortContainerModule;
 import net.shlomo1412.booster.client.module.modules.SortInventoryModule;
 import net.shlomo1412.booster.client.module.modules.StealStoreModule;
 import net.shlomo1412.booster.client.module.modules.SwitchWorldModule;
+import net.shlomo1412.booster.client.module.modules.TeleportToDeathModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,6 +94,11 @@ public class BoosterClient implements ClientModInitializer {
         manager.register(new ReconnectModule());
         manager.register(new ServerInfoModule());
         manager.register(new ConnectToServerModule());
+        
+        // Death Screen Modules
+        manager.register(new DeathCoordinatesModule());
+        manager.register(new TeleportToDeathModule());
+        manager.register(new DeathInventoryModule());
         
         // Add more modules here as they are created
     }

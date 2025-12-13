@@ -340,6 +340,10 @@ public abstract class GameMenuScreenMixin extends Screen {
     private void booster$onRender(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         EditorModeManager editor = EditorModeManager.getInstance();
         
+        // Render dropdowns and panels at higher z-level to appear above buttons
+        context.getMatrices().push();
+        context.getMatrices().translate(0, 0, 400);
+        
         // Render dropdowns for modules with dropdown UI
         if (booster$switchWorldModule != null) {
             booster$switchWorldModule.renderDropdown(context, mouseX, mouseY);
@@ -348,10 +352,12 @@ public abstract class GameMenuScreenMixin extends Screen {
             booster$connectToServerModule.renderDropdown(context, mouseX, mouseY);
         }
         
-        // Render server info tooltip
+        // Render server info panel
         if (booster$serverInfoModule != null) {
             booster$serverInfoModule.renderInfoPanel(context, mouseX, mouseY);
         }
+        
+        context.getMatrices().pop();
         
         // Render editor sidebar if active
         if (booster$editorSidebar != null) {
@@ -388,22 +394,19 @@ public abstract class GameMenuScreenMixin extends Screen {
         return booster$editorSidebar;
     }
     
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // Handle dropdown clicks for switch world module
-        if (booster$switchWorldModule != null && booster$switchWorldModule.isDropdownOpen()) {
-            if (booster$switchWorldModule.handleDropdownClick(mouseX, mouseY)) {
-                return true;
-            }
-        }
-        
-        // Handle dropdown clicks for connect to server module
-        if (booster$connectToServerModule != null && booster$connectToServerModule.isDropdownOpen()) {
-            if (booster$connectToServerModule.handleDropdownClick(mouseX, mouseY)) {
-                return true;
-            }
-        }
-        
-        return super.mouseClicked(mouseX, mouseY, button);
+    /**
+     * @return The switch world module, or null if not active
+     */
+    @Unique
+    public SwitchWorldModule booster$getSwitchWorldModule() {
+        return booster$switchWorldModule;
+    }
+    
+    /**
+     * @return The connect to server module, or null if not active
+     */
+    @Unique
+    public ConnectToServerModule booster$getConnectToServerModule() {
+        return booster$connectToServerModule;
     }
 }

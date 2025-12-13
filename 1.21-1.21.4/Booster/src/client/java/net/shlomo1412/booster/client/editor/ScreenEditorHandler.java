@@ -3,11 +3,15 @@ package net.shlomo1412.booster.client.editor;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.screen.DeathScreen;
 import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
 import net.shlomo1412.booster.client.editor.widget.EditorSidebar;
+import net.shlomo1412.booster.client.module.ModuleManager;
+import net.shlomo1412.booster.client.module.modules.ConnectToServerModule;
+import net.shlomo1412.booster.client.module.modules.SwitchWorldModule;
 
 /**
  * Handles editor mode mouse events for screens that don't override mouse methods.
@@ -32,7 +36,8 @@ public class ScreenEditorHandler {
             // Only handle our target screens
             if (screen instanceof TitleScreen || 
                 screen instanceof MultiplayerScreen || 
-                screen instanceof GameMenuScreen) {
+                screen instanceof GameMenuScreen ||
+                screen instanceof DeathScreen) {
                 
                 // Register mouse event handlers for this screen
                 registerMouseHandlers(screen);
@@ -43,6 +48,25 @@ public class ScreenEditorHandler {
     private static void registerMouseHandlers(Screen screen) {
         // Mouse click handler - use allowMouseClick to be able to cancel
         ScreenMouseEvents.allowMouseClick(screen).register((scr, mouseX, mouseY, button) -> {
+            // Handle GameMenuScreen dropdown clicks (works regardless of editor mode)
+            if (scr instanceof GameMenuScreen) {
+                // Check SwitchWorldModule dropdown
+                SwitchWorldModule switchWorldModule = ModuleManager.getInstance().getModule(SwitchWorldModule.class);
+                if (switchWorldModule != null && switchWorldModule.isDropdownOpen()) {
+                    if (switchWorldModule.handleDropdownClick(mouseX, mouseY)) {
+                        return false; // Block further processing
+                    }
+                }
+                
+                // Check ConnectToServerModule dropdown
+                ConnectToServerModule connectToServerModule = ModuleManager.getInstance().getModule(ConnectToServerModule.class);
+                if (connectToServerModule != null && connectToServerModule.isDropdownOpen()) {
+                    if (connectToServerModule.handleDropdownClick(mouseX, mouseY)) {
+                        return false; // Block further processing
+                    }
+                }
+            }
+            
             EditorModeManager editor = EditorModeManager.getInstance();
             
             if (!editor.isEditorModeActive()) {
