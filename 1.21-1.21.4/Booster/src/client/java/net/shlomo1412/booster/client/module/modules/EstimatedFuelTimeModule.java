@@ -151,32 +151,24 @@ public class EstimatedFuelTimeModule extends GUIModule {
         MinecraftClient client = MinecraftClient.getInstance();
         TextRenderer textRenderer = client.textRenderer;
         
-        int x = timeDisplay.getX();
-        int y = timeDisplay.getY();
-        int width = timeDisplay.getWidth();
-        int height = timeDisplay.getHeight();
-        
         // Calculate remaining time
         String timeText = calculateTimeText(handler);
         
-        // Draw background if enabled
-        if (showBackgroundSetting.getValue()) {
-            context.fill(x, y, x + width, y + height, 0xAA000000);
-        }
-        
-        // Build display text
+        // Build display text (icon is already shown by the button, so only add it if we're drawing separately)
         StringBuilder displayText = new StringBuilder();
         if (showIconSetting.getValue()) {
             displayText.append("⏱ ");
         }
         displayText.append(timeText);
         
-        // Draw text centered
-        int textWidth = textRenderer.getWidth(displayText.toString());
-        int textX = x + (width - textWidth) / 2;
-        int textY = y + (height - 8) / 2;
+        // Update button message to show the full text
+        timeDisplay.setMessage(net.minecraft.text.Text.literal(displayText.toString()));
         
-        context.drawTextWithShadow(textRenderer, displayText.toString(), textX, textY, textColorSetting.getValue());
+        // Calculate the minimum width needed and update if necessary
+        int neededWidth = textRenderer.getWidth(displayText.toString()) + 8; // 4px padding on each side
+        if (timeDisplay.getWidth() < neededWidth) {
+            timeDisplay.setWidth(neededWidth);
+        }
     }
     
     /**

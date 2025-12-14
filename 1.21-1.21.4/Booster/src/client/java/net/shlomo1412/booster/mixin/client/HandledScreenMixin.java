@@ -544,14 +544,23 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         if (handler instanceof AbstractFurnaceScreenHandler) {
             AbstractFurnaceScreenHandler furnaceHandler = (AbstractFurnaceScreenHandler) handler;
             
-            // Render highlight fuel module
+            // Update and render highlight fuel module (update every frame to catch inventory changes)
             if (booster$highlightFuelModule != null && booster$highlightFuelModule.isEnabled()) {
+                booster$highlightFuelModule.updateFuelSlots(furnaceHandler);
                 booster$highlightFuelModule.renderHighlights(context, furnaceHandler, x, y);
             }
             
             // Render estimated fuel time display
             if (booster$estimatedFuelTimeModule != null && booster$estimatedFuelTimeModule.isEnabled()) {
                 booster$estimatedFuelTimeModule.renderTime(context, furnaceHandler, x, y);
+            }
+            
+            // Update pinned furnace tracking (to keep time accurate when slots change)
+            if (booster$pinEstimatedTimeModule != null && booster$pinEstimatedTimeModule.isEnabled()) {
+                MinecraftClient client = MinecraftClient.getInstance();
+                if (client.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult blockHit) {
+                    booster$pinEstimatedTimeModule.updateTrackedFurnace(blockHit.getBlockPos(), furnaceHandler);
+                }
             }
         }
         

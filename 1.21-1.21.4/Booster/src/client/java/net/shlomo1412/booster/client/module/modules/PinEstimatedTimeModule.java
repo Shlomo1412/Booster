@@ -129,14 +129,20 @@ public class PinEstimatedTimeModule extends GUIModule {
         int buttonX = anchorX + settings.getOffsetX();
         int buttonY = anchorY + settings.getOffsetY();
         
+        // Check if this furnace is already pinned
+        boolean isPinned = isCurrentFurnacePinned();
+        
         pinButton = new BoosterButton(
             buttonX, buttonY,
             settings.getWidth(), settings.getHeight(),
-            "📌",
-            "Pin Time",
-            "Pin the estimated time as an overlay.\n" +
-            "Shows even after closing the furnace.",
-            button -> pinCurrentFurnace(screen)
+            isPinned ? "📍" : "📌",
+            isPinned ? "Unpin Time" : "Pin Time",
+            isPinned ? 
+                "Unpin the estimated time overlay.\n" +
+                "Click to stop tracking this furnace." :
+                "Pin the estimated time as an overlay.\n" +
+                "Shows even after closing the furnace.",
+            button -> togglePinCurrentFurnace(screen)
         );
         
         // Apply display mode
@@ -149,35 +155,87 @@ public class PinEstimatedTimeModule extends GUIModule {
     }
     
     /**
-     * Pins the current furnace's smelting time.
+     * Checks if the current furnace (based on crosshair) is already pinned.
      */
-    private void pinCurrentFurnace(HandledScreen<?> screen) {
+    private boolean isCurrentFurnacePinned() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult blockHit) {
+            return trackedFurnaces.containsKey(blockHit.getBlockPos());
+        }
+        return false;
+    }
+    
+    /**
+     * Gets the position of the current furnace (based on crosshair).
+     */
+    private BlockPos getCurrentFurnacePos() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult blockHit) {
+            return blockHit.getBlockPos();
+        }
+        return null;
+    }
+    
+    /**
+     * Toggles pinning for the current furnace.
+     */
+    private void togglePinCurrentFurnace(HandledScreen<?> screen) {
+        BlockPos furnacePos = getCurrentFurnacePos();
+        if (furnacePos == null) return;
+        
+        if (trackedFurnaces.containsKey(furnacePos)) {
+            // Already pinned - unpin it
+            trackedFurnaces.remove(furnacePos);
+            updateButtonState(false);
+        } else {
+            // Not pinned - pin it
+            pinFurnace(screen, furnacePos);
+            updateButtonState(true);
+        }
+    }
+    
+    /**
+     * Updates the button appearance based on pin state.
+     */
+    private void updateButtonState(boolean isPinned) {
+        if (pinButton != null) {
+            pinButton.setMessage(net.minecraft.text.Text.literal(isPinned ? "📍" : "📌"));
+        }
+    }
+    
+    /**
+     * Pins a furnace at the specified position.
+     */
+    private void pinFurnace(HandledScreen<?> screen, BlockPos furnacePos) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
         
-        // Get the furnace position from the screen
-        // We'll use the player's targeted block position as an approximation
-        if (client.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult blockHit) {
-            BlockPos furnacePos = blockHit.getBlockPos();
+        if (screen.getScreenHandler() instanceof AbstractFurnaceScreenHandler handler) {
+            // Calculate estimated completion time
+            long currentTime = System.currentTimeMillis();
+            int remainingTicks = calculateRemainingTicks(handler);
+            long estimatedCompletionTime = currentTime + (remainingTicks * 50L); // 50ms per tick
             
-            if (screen.getScreenHandler() instanceof AbstractFurnaceScreenHandler handler) {
-                // Calculate estimated completion time
-                long currentTime = System.currentTimeMillis();
-                int remainingTicks = calculateRemainingTicks(handler);
-                long estimatedCompletionTime = currentTime + (remainingTicks * 50L); // 50ms per tick
-                
-                String furnaceName = getFurnaceName(handler);
-                
-                TrackedFurnace tracked = new TrackedFurnace(
-                    furnacePos,
-                    furnaceName,
-                    estimatedCompletionTime,
-                    remainingTicks > 0
-                );
-                
-                trackedFurnaces.put(furnacePos, tracked);
-            }
+            String furnaceName = getFurnaceName(handler);
+            
+            TrackedFurnace tracked = new TrackedFurnace(
+                furnacePos,
+                furnaceName,
+                estimatedCompletionTime,
+                remainingTicks > 0
+            );
+            
+            trackedFurnaces.put(furnacePos, tracked);
         }
+    }
+    
+    /**
+     * Pins the current furnace's smelting time.
+     * @deprecated Use togglePinCurrentFurnace instead
+     */
+    @Deprecated
+    private void pinCurrentFurnace(HandledScreen<?> screen) {
+        togglePinCurrentFurnace(screen);
     }
     
     /**
