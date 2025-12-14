@@ -36,6 +36,13 @@ public class EstimatedFuelTimeModule extends GUIModule {
     private int totalCookTime = 0;
     private int remainingItemsToCook = 0;
     
+    // Time tracking for smooth countdown
+    private long lastCalculationTime = 0;
+    private int lastInputCount = -1;
+    private int lastFuelCount = -1;
+    private float cachedTotalSeconds = 0;
+    private boolean wasProcessing = false;
+    
     public EstimatedFuelTimeModule() {
         super(
             "estimated_fuel_time",
@@ -173,56 +180,88 @@ public class EstimatedFuelTimeModule extends GUIModule {
     
     /**
      * Calculates the time text based on furnace state.
+     * Uses time-based interpolation for smooth countdown even when game is paused.
      */
     private String calculateTimeText(AbstractFurnaceScreenHandler handler) {
         // Check if there are items to smelt
         if (handler.getSlot(0).getStack().isEmpty()) {
+            resetTimeTracking();
             return "No items";
         }
         
         // Check if burning (has fuel)
         boolean isBurning = handler.isBurning();
         if (!isBurning) {
+            resetTimeTracking();
             return "No fuel";
         }
         
-        // Get actual cook progress from handler's property delegate
-        // getCookProgress() returns scaled value for rendering (0-24)
-        // We need to calculate based on actual progress
-        float cookProgressScaled = handler.getCookProgress(); // 0.0 to 1.0 approximately, scaled to arrow width
+        // Get current slot counts
+        int currentInputCount = handler.getSlot(0).getStack().getCount();
+        int currentFuelCount = handler.getSlot(1).getStack().getCount();
         
-        // The cook progress is scaled to 24 (arrow width), so we need to reverse it
-        // cookProgress of 24 means done, 0 means just started
-        int ticksPerItem = getTotalCookTime(handler);
+        long currentTime = System.currentTimeMillis();
         
-        // Calculate remaining ticks for current item
-        // getCookProgress returns a float that represents progress (scaled for rendering)
-        // We calculate remaining based on how much progress is left
-        int maxProgress = 24; // Arrow width used for scaling
-        int currentProgress = (int) cookProgressScaled;
-        int remainingProgressForCurrent = maxProgress - currentProgress;
+        // Check if we need to recalculate the base time
+        // Recalculate when: first time, items changed, or wasn't processing before
+        boolean needsRecalculation = !wasProcessing ||
+            currentInputCount != lastInputCount ||
+            currentFuelCount != lastFuelCount ||
+            lastCalculationTime == 0;
         
-        float progressRatio = (float) remainingProgressForCurrent / maxProgress;
-        int ticksForCurrentItem = (int) (ticksPerItem * progressRatio);
+        if (needsRecalculation) {
+            // Calculate the actual remaining time from furnace state
+            float cookProgressScaled = handler.getCookProgress();
+            int ticksPerItem = getTotalCookTime(handler);
+            
+            int maxProgress = 24;
+            int currentProgress = (int) cookProgressScaled;
+            int remainingProgressForCurrent = maxProgress - currentProgress;
+            
+            float progressRatio = (float) remainingProgressForCurrent / maxProgress;
+            int ticksForCurrentItem = (int) (ticksPerItem * progressRatio);
+            
+            int ticksForRemainingItems = (currentInputCount > 1 ? (currentInputCount - 1) : 0) * ticksPerItem;
+            
+            int totalTicks = ticksForCurrentItem + ticksForRemainingItems;
+            cachedTotalSeconds = totalTicks / 20.0f;
+            
+            lastCalculationTime = currentTime;
+            lastInputCount = currentInputCount;
+            lastFuelCount = currentFuelCount;
+            wasProcessing = true;
+        }
         
-        // Add time for remaining items in input slot (minus the one currently cooking)
-        int inputCount = handler.getSlot(0).getStack().getCount();
-        int ticksForRemainingItems = (inputCount > 1 ? (inputCount - 1) : 0) * ticksPerItem;
+        // Calculate elapsed time since last calculation and subtract from cached time
+        float elapsedSeconds = (currentTime - lastCalculationTime) / 1000.0f;
+        float remainingSeconds = cachedTotalSeconds - elapsedSeconds;
         
-        int totalTicks = ticksForCurrentItem + ticksForRemainingItems;
+        // Clamp to 0
+        if (remainingSeconds < 0) {
+            remainingSeconds = 0;
+        }
         
-        // Convert to seconds
-        float seconds = totalTicks / 20.0f;
-        
-        if (seconds < 1) {
-            return String.format("%.1fs", seconds);
-        } else if (seconds < 60) {
-            return String.format("%.1fs", seconds);
+        // Format the time
+        if (remainingSeconds < 1) {
+            return String.format("%.1fs", remainingSeconds);
+        } else if (remainingSeconds < 60) {
+            return String.format("%.1fs", remainingSeconds);
         } else {
-            int mins = (int) (seconds / 60);
-            float secs = seconds % 60;
+            int mins = (int) (remainingSeconds / 60);
+            float secs = remainingSeconds % 60;
             return String.format("%dm %.0fs", mins, secs);
         }
+    }
+    
+    /**
+     * Resets the time tracking state.
+     */
+    private void resetTimeTracking() {
+        lastCalculationTime = 0;
+        lastInputCount = -1;
+        lastFuelCount = -1;
+        cachedTotalSeconds = 0;
+        wasProcessing = false;
     }
     
     /**
