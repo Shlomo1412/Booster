@@ -175,34 +175,39 @@ public class EstimatedFuelTimeModule extends GUIModule {
      * Calculates the time text based on furnace state.
      */
     private String calculateTimeText(AbstractFurnaceScreenHandler handler) {
-        // Check if currently smelting
-        int cookProgress = (int) handler.getCookProgress();
-        boolean isBurning = handler.isBurning();
-        
-        if (!isBurning && cookProgress == 0) {
-            // Check if there are items to smelt
-            if (handler.getSlot(0).getStack().isEmpty()) {
-                return "No items";
-            } else {
-                return "No fuel";
-            }
+        // Check if there are items to smelt
+        if (handler.getSlot(0).getStack().isEmpty()) {
+            return "No items";
         }
         
-        // Get the remaining cook time for current item
-        // cookProgress is 0-24 (scaled), representing 0-200 ticks
-        // 200 ticks = 10 seconds for normal furnace, 5 seconds for blast/smoker
-        int maxProgress = 24; // The arrow is 24 pixels wide
-        int remainingProgressForCurrent = maxProgress - cookProgress;
+        // Check if burning (has fuel)
+        boolean isBurning = handler.isBurning();
+        if (!isBurning) {
+            return "No fuel";
+        }
         
-        // Estimate ticks remaining for current item
-        // The cook progress bar fills over the total cook time
+        // Get actual cook progress from handler's property delegate
+        // getCookProgress() returns scaled value for rendering (0-24)
+        // We need to calculate based on actual progress
+        float cookProgressScaled = handler.getCookProgress(); // 0.0 to 1.0 approximately, scaled to arrow width
+        
+        // The cook progress is scaled to 24 (arrow width), so we need to reverse it
+        // cookProgress of 24 means done, 0 means just started
         int ticksPerItem = getTotalCookTime(handler);
+        
+        // Calculate remaining ticks for current item
+        // getCookProgress returns a float that represents progress (scaled for rendering)
+        // We calculate remaining based on how much progress is left
+        int maxProgress = 24; // Arrow width used for scaling
+        int currentProgress = (int) cookProgressScaled;
+        int remainingProgressForCurrent = maxProgress - currentProgress;
+        
         float progressRatio = (float) remainingProgressForCurrent / maxProgress;
         int ticksForCurrentItem = (int) (ticksPerItem * progressRatio);
         
-        // Add time for remaining items in input slot
+        // Add time for remaining items in input slot (minus the one currently cooking)
         int inputCount = handler.getSlot(0).getStack().getCount();
-        int ticksForRemainingItems = (inputCount > 0 ? (inputCount - 1) : 0) * ticksPerItem;
+        int ticksForRemainingItems = (inputCount > 1 ? (inputCount - 1) : 0) * ticksPerItem;
         
         int totalTicks = ticksForCurrentItem + ticksForRemainingItems;
         

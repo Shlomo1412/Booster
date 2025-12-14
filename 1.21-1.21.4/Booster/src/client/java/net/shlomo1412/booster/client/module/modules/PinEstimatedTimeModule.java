@@ -218,10 +218,9 @@ public class PinEstimatedTimeModule extends GUIModule {
             
             String furnaceName = getFurnaceName(handler);
             
-            // Get current slot counts
+            // Get current slot counts (only input and fuel - not output)
             int inputCount = handler.getSlot(0).getStack().getCount();
             int fuelCount = handler.getSlot(1).getStack().getCount();
-            int outputCount = handler.getSlot(2).getStack().getCount();
             
             TrackedFurnace tracked = new TrackedFurnace(
                 furnacePos,
@@ -229,8 +228,7 @@ public class PinEstimatedTimeModule extends GUIModule {
                 estimatedCompletionTime,
                 remainingTicks > 0,
                 inputCount,
-                fuelCount,
-                outputCount
+                fuelCount
             );
             
             trackedFurnaces.put(furnacePos, tracked);
@@ -363,7 +361,8 @@ public class PinEstimatedTimeModule extends GUIModule {
     
     /**
      * Updates tracked furnaces when viewing a furnace screen.
-     * Only updates when there's a significant change in items to avoid timer freezing.
+     * Only updates when there's a significant change in INPUT items to avoid timer issues.
+     * Does NOT reset timer when output changes (which happens as items finish).
      */
     public void updateTrackedFurnace(BlockPos pos, AbstractFurnaceScreenHandler handler) {
         if (trackedFurnaces.containsKey(pos)) {
@@ -372,31 +371,28 @@ public class PinEstimatedTimeModule extends GUIModule {
             // Get current item count to detect changes
             int currentInputCount = handler.getSlot(0).getStack().getCount();
             int currentFuelCount = handler.getSlot(1).getStack().getCount();
-            int currentOutputCount = handler.getSlot(2).getStack().getCount();
+            // Note: We intentionally don't track output changes to avoid resetting on finish
             
-            // Only recalculate if items changed (user moved items in/out)
+            // Only recalculate if INPUT or FUEL changed (user added items)
+            // Don't recalculate when output changes (that's items finishing normally)
             if (currentInputCount != tracked.lastInputCount ||
-                currentFuelCount != tracked.lastFuelCount ||
-                currentOutputCount != tracked.lastOutputCount) {
+                currentFuelCount != tracked.lastFuelCount) {
                 
+                // Only update if input increased (user added more items to smelt)
+                // or if fuel changed (user added fuel)
                 long currentTime = System.currentTimeMillis();
                 int remainingTicks = calculateRemainingTicks(handler);
                 
-                if (remainingTicks > 0) {
+                if (remainingTicks > 0 && currentInputCount > 0) {
                     tracked.estimatedCompletionTime = currentTime + (remainingTicks * 50L);
                     tracked.isProcessing = true;
-                } else {
-                    // No longer processing
-                    if (tracked.isProcessing) {
-                        tracked.isProcessing = false;
-                        tracked.estimatedCompletionTime = currentTime; // Mark as finished now
-                    }
                 }
+                // Don't set isProcessing = false here - let the timer naturally reach 0
+                // and show FINISHED based on the original estimatedCompletionTime
                 
                 // Update cached counts
                 tracked.lastInputCount = currentInputCount;
                 tracked.lastFuelCount = currentFuelCount;
-                tracked.lastOutputCount = currentOutputCount;
             }
         }
     }
@@ -437,20 +433,18 @@ public class PinEstimatedTimeModule extends GUIModule {
         String furnaceName;
         long estimatedCompletionTime;
         boolean isProcessing;
-        // Cached slot counts to detect changes
+        // Cached slot counts to detect changes (input and fuel only)
         int lastInputCount;
         int lastFuelCount;
-        int lastOutputCount;
         
         TrackedFurnace(BlockPos position, String furnaceName, long estimatedCompletionTime, boolean isProcessing,
-                       int inputCount, int fuelCount, int outputCount) {
+                       int inputCount, int fuelCount) {
             this.position = position;
             this.furnaceName = furnaceName;
             this.estimatedCompletionTime = estimatedCompletionTime;
             this.isProcessing = isProcessing;
             this.lastInputCount = inputCount;
             this.lastFuelCount = fuelCount;
-            this.lastOutputCount = outputCount;
         }
     }
 }
