@@ -26,6 +26,8 @@ import net.shlomo1412.booster.client.module.ModuleManager;
 import net.shlomo1412.booster.client.module.modules.AutoArmorModule;
 import net.shlomo1412.booster.client.module.modules.ClearFurnaceModule;
 import net.shlomo1412.booster.client.module.modules.ClearGridModule;
+import net.shlomo1412.booster.client.module.modules.DropAllContainerModule;
+import net.shlomo1412.booster.client.module.modules.DropAllModule;
 import net.shlomo1412.booster.client.module.modules.EstimatedFuelTimeModule;
 import net.shlomo1412.booster.client.module.modules.HighlightFuelModule;
 import net.shlomo1412.booster.client.module.modules.InfiniteCraftModule;
@@ -100,6 +102,12 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     private SortContainerModule booster$sortContainerModule;
     
     @Unique
+    private DropAllModule booster$dropAllModule;
+    
+    @Unique
+    private DropAllContainerModule booster$dropAllContainerModule;
+    
+    @Unique
     private net.shlomo1412.booster.client.widget.BoosterProgressBar booster$progressBarWidget;
     
     // Crafting screen modules
@@ -152,6 +160,8 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         booster$inventoryProgressModule = null;
         booster$sortInventoryModule = null;
         booster$sortContainerModule = null;
+        booster$dropAllModule = null;
+        booster$dropAllContainerModule = null;
         booster$progressBarWidget = null;
         booster$clearGridModule = null;
         booster$infiniteCraftModule = null;
@@ -284,6 +294,40 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                     isContainerScreen,    // Different position for container vs inventory
                     button -> this.addDrawableChild(button)
                 );
+            }
+        }
+        
+        // Add Drop All button (works on container and player inventory screens)
+        booster$dropAllModule = ModuleManager.getInstance().getModule(DropAllModule.class);
+        if (booster$dropAllModule != null && (isContainerScreen || isPlayerInventory)) {
+            booster$hasBoosterContent = true;
+            
+            if (booster$dropAllModule.isEnabled()) {
+                booster$dropAllModule.createButton(
+                    self,
+                    x + backgroundWidth,  // Right edge of container/inventory
+                    y,                    // Use consistent anchor (container top)
+                    backgroundHeight,     // Pass height so module can calculate inventory section
+                    isContainerScreen,    // Different position for container vs inventory
+                    button -> this.addDrawableChild(button)
+                );
+            }
+        }
+        
+        // Add Drop All Container button (container screen only)
+        if (isContainerScreen) {
+            booster$dropAllContainerModule = ModuleManager.getInstance().getModule(DropAllContainerModule.class);
+            if (booster$dropAllContainerModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$dropAllContainerModule.isEnabled()) {
+                    booster$dropAllContainerModule.createButton(
+                        self,
+                        x + backgroundWidth,  // Right edge of container
+                        y,
+                        button -> this.addDrawableChild(button)
+                    );
+                }
             }
         }
         
@@ -457,6 +501,19 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                 SortInventoryModule sortInventory = ModuleManager.getInstance().getModule(SortInventoryModule.class);
                 if (sortInventory != null) {
                     activeModules.add(sortInventory);
+                }
+                
+                DropAllModule dropAll = ModuleManager.getInstance().getModule(DropAllModule.class);
+                if (dropAll != null) {
+                    activeModules.add(dropAll);
+                }
+            }
+            
+            // Drop All Container works on container screen only
+            if (isContainerScreen) {
+                DropAllContainerModule dropAllContainer = ModuleManager.getInstance().getModule(DropAllContainerModule.class);
+                if (dropAllContainer != null) {
+                    activeModules.add(dropAllContainer);
                 }
             }
             

@@ -11,6 +11,8 @@ import net.shlomo1412.booster.client.module.modules.CopyIPModule;
 import net.shlomo1412.booster.client.module.modules.DatapacksFolderModule;
 import net.shlomo1412.booster.client.module.modules.DeathCoordinatesModule;
 import net.shlomo1412.booster.client.module.modules.DeathInventoryModule;
+import net.shlomo1412.booster.client.module.modules.DropAllContainerModule;
+import net.shlomo1412.booster.client.module.modules.DropAllModule;
 import net.shlomo1412.booster.client.module.modules.EstimatedFuelTimeModule;
 import net.shlomo1412.booster.client.module.modules.HighlightFuelModule;
 import net.shlomo1412.booster.client.module.modules.InfiniteCraftModule;
@@ -71,6 +73,8 @@ public class BoosterClient implements ClientModInitializer {
         manager.register(new InventoryProgressModule());
         manager.register(new SortInventoryModule());
         manager.register(new SortContainerModule());
+        manager.register(new DropAllModule());
+        manager.register(new DropAllContainerModule());
         
         // GUI Modules - Crafting Table Screen
         manager.register(new ClearGridModule());
