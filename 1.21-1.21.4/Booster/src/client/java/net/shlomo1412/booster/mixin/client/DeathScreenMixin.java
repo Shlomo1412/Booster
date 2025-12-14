@@ -15,6 +15,7 @@ import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.ModuleManager;
 import net.shlomo1412.booster.client.module.modules.DeathCoordinatesModule;
 import net.shlomo1412.booster.client.module.modules.DeathInventoryModule;
+import net.shlomo1412.booster.client.module.modules.RecoverItemsModule;
 import net.shlomo1412.booster.client.module.modules.TeleportToDeathModule;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -51,6 +52,9 @@ public abstract class DeathScreenMixin extends Screen {
     private DeathInventoryModule booster$deathInventoryModule;
     
     @Unique
+    private RecoverItemsModule booster$recoverItemsModule;
+    
+    @Unique
     private boolean booster$hasBoosterContent = false;
 
     protected DeathScreenMixin(net.minecraft.text.Text title) {
@@ -71,6 +75,7 @@ public abstract class DeathScreenMixin extends Screen {
         booster$deathCoordsModule = null;
         booster$tpDeathModule = null;
         booster$deathInventoryModule = null;
+        booster$recoverItemsModule = null;
         booster$editorSidebar = null;
         
         DeathScreen self = (DeathScreen) (Object) this;
@@ -120,6 +125,20 @@ public abstract class DeathScreenMixin extends Screen {
                 );
             }
         }
+        
+        // Recover Items button
+        booster$recoverItemsModule = ModuleManager.getInstance().getModule(RecoverItemsModule.class);
+        if (booster$recoverItemsModule != null && booster$recoverItemsModule.isEnabled()) {
+            if (booster$recoverItemsModule.shouldShow() && DeathInventoryModule.hasDeathInventory()) {
+                booster$hasBoosterContent = true;
+                booster$recoverItemsModule.createButton(
+                    self,
+                    anchorX + 205,  // After Inventory button
+                    anchorY,
+                    button -> this.addDrawableChild(button)
+                );
+            }
+        }
 
         // Add Edit and Config buttons at BOTTOM-LEFT corner
         if (booster$hasBoosterContent) {
@@ -152,6 +171,9 @@ public abstract class DeathScreenMixin extends Screen {
             }
             if (booster$deathInventoryModule != null && booster$deathInventoryModule.getButton() != null) {
                 activeModules.add(booster$deathInventoryModule);
+            }
+            if (booster$recoverItemsModule != null) {
+                activeModules.add(booster$recoverItemsModule);
             }
             
             ScreenInfo screenInfo = new ScreenInfo(this, 0, 0, this.width, this.height);

@@ -6,8 +6,10 @@ import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.Selectable;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.AbstractFurnaceScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.screen.AbstractFurnaceScreenHandler;
 import net.minecraft.screen.CraftingScreenHandler;
 import net.minecraft.screen.GenericContainerScreenHandler;
 import net.minecraft.screen.PlayerScreenHandler;
@@ -22,10 +24,15 @@ import net.shlomo1412.booster.client.editor.widget.EditorSidebar;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.ModuleManager;
 import net.shlomo1412.booster.client.module.modules.AutoArmorModule;
+import net.shlomo1412.booster.client.module.modules.ClearFurnaceModule;
 import net.shlomo1412.booster.client.module.modules.ClearGridModule;
+import net.shlomo1412.booster.client.module.modules.EstimatedFuelTimeModule;
+import net.shlomo1412.booster.client.module.modules.HighlightFuelModule;
 import net.shlomo1412.booster.client.module.modules.InfiniteCraftModule;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
+import net.shlomo1412.booster.client.module.modules.PinEstimatedTimeModule;
 import net.shlomo1412.booster.client.module.modules.SearchBarModule;
+import net.shlomo1412.booster.client.module.modules.SmartFuelModule;
 import net.shlomo1412.booster.client.module.modules.SortContainerModule;
 import net.shlomo1412.booster.client.module.modules.SortInventoryModule;
 import net.shlomo1412.booster.client.module.modules.StealStoreModule;
@@ -105,6 +112,22 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     // Player inventory modules
     @Unique
     private AutoArmorModule booster$autoArmorModule;
+    
+    // Furnace screen modules
+    @Unique
+    private EstimatedFuelTimeModule booster$estimatedFuelTimeModule;
+    
+    @Unique
+    private PinEstimatedTimeModule booster$pinEstimatedTimeModule;
+    
+    @Unique
+    private SmartFuelModule booster$smartFuelModule;
+    
+    @Unique
+    private HighlightFuelModule booster$highlightFuelModule;
+    
+    @Unique
+    private ClearFurnaceModule booster$clearFurnaceModule;
 
     // Required for extending Screen
     protected HandledScreenMixin() {
@@ -133,14 +156,20 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         booster$clearGridModule = null;
         booster$infiniteCraftModule = null;
         booster$autoArmorModule = null;
+        booster$estimatedFuelTimeModule = null;
+        booster$pinEstimatedTimeModule = null;
+        booster$smartFuelModule = null;
+        booster$highlightFuelModule = null;
+        booster$clearFurnaceModule = null;
 
         // Determine screen type
         boolean isContainerScreen = handler instanceof GenericContainerScreenHandler;
         boolean isPlayerInventory = handler instanceof PlayerScreenHandler;
         boolean isCraftingScreen = handler instanceof CraftingScreenHandler;
+        boolean isFurnaceScreen = handler instanceof AbstractFurnaceScreenHandler;
         
         // Only process screens we support
-        if (!isContainerScreen && !isPlayerInventory && !isCraftingScreen) {
+        if (!isContainerScreen && !isPlayerInventory && !isCraftingScreen && !isFurnaceScreen) {
             return;
         }
         
@@ -274,6 +303,85 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                 }
             }
         }
+        
+        // Add furnace screen modules (works on furnace, blast furnace, smoker)
+        if (isFurnaceScreen) {
+            int furnaceButtonY = y;
+            int furnaceButtonX = x + backgroundWidth;
+            
+            // Estimated Fuel Time module (just a widget, no button)
+            booster$estimatedFuelTimeModule = ModuleManager.getInstance().getModule(EstimatedFuelTimeModule.class);
+            if (booster$estimatedFuelTimeModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$estimatedFuelTimeModule.isEnabled()) {
+                    booster$estimatedFuelTimeModule.createWidget(
+                        self,
+                        furnaceButtonX,
+                        furnaceButtonY,
+                        button -> this.addDrawableChild(button)
+                    );
+                }
+            }
+            
+            // Pin Estimated Time module
+            booster$pinEstimatedTimeModule = ModuleManager.getInstance().getModule(PinEstimatedTimeModule.class);
+            if (booster$pinEstimatedTimeModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$pinEstimatedTimeModule.isEnabled()) {
+                    booster$pinEstimatedTimeModule.createButton(
+                        self,
+                        furnaceButtonX,
+                        furnaceButtonY,
+                        button -> this.addDrawableChild(button)
+                    );
+                    furnaceButtonY += 22;
+                }
+            }
+            
+            // Smart Fuel module
+            booster$smartFuelModule = ModuleManager.getInstance().getModule(SmartFuelModule.class);
+            if (booster$smartFuelModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$smartFuelModule.isEnabled()) {
+                    booster$smartFuelModule.createButton(
+                        self,
+                        furnaceButtonX,
+                        furnaceButtonY,
+                        button -> this.addDrawableChild(button)
+                    );
+                    furnaceButtonY += 22;
+                }
+            }
+            
+            // Highlight Fuel module (no button, just slot highlighting)
+            booster$highlightFuelModule = ModuleManager.getInstance().getModule(HighlightFuelModule.class);
+            if (booster$highlightFuelModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$highlightFuelModule.isEnabled()) {
+                    // Update fuel slots for highlighting
+                    booster$highlightFuelModule.updateFuelSlots((AbstractFurnaceScreenHandler) handler);
+                }
+            }
+            
+            // Clear Furnace module
+            booster$clearFurnaceModule = ModuleManager.getInstance().getModule(ClearFurnaceModule.class);
+            if (booster$clearFurnaceModule != null) {
+                booster$hasBoosterContent = true;
+                
+                if (booster$clearFurnaceModule.isEnabled()) {
+                    booster$clearFurnaceModule.createButton(
+                        self,
+                        furnaceButtonX,
+                        furnaceButtonY,
+                        button -> this.addDrawableChild(button)
+                    );
+                }
+            }
+        }
 
         // Add Edit and Config buttons at TOP-RIGHT of SCREEN (not container)
         if (booster$hasBoosterContent) {
@@ -360,6 +468,34 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                 }
             }
             
+            // Furnace screen modules (furnace, blast furnace, smoker)
+            if (handler instanceof AbstractFurnaceScreenHandler) {
+                EstimatedFuelTimeModule estimatedFuel = ModuleManager.getInstance().getModule(EstimatedFuelTimeModule.class);
+                if (estimatedFuel != null) {
+                    activeModules.add(estimatedFuel);
+                }
+                
+                PinEstimatedTimeModule pinEstimated = ModuleManager.getInstance().getModule(PinEstimatedTimeModule.class);
+                if (pinEstimated != null) {
+                    activeModules.add(pinEstimated);
+                }
+                
+                SmartFuelModule smartFuel = ModuleManager.getInstance().getModule(SmartFuelModule.class);
+                if (smartFuel != null) {
+                    activeModules.add(smartFuel);
+                }
+                
+                HighlightFuelModule highlightFuel = ModuleManager.getInstance().getModule(HighlightFuelModule.class);
+                if (highlightFuel != null) {
+                    activeModules.add(highlightFuel);
+                }
+                
+                ClearFurnaceModule clearFurnace = ModuleManager.getInstance().getModule(ClearFurnaceModule.class);
+                if (clearFurnace != null) {
+                    activeModules.add(clearFurnace);
+                }
+            }
+            
             ScreenInfo screenInfo = new ScreenInfo(this, x, y, backgroundWidth, backgroundHeight);
             booster$editorSidebar = new EditorSidebar(
                 MinecraftClient.getInstance(), 
@@ -402,6 +538,21 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         // Tick auto armor module (handles automatic armor equipping)
         if (booster$autoArmorModule != null && booster$autoArmorModule.isEnabled()) {
             booster$autoArmorModule.tick((HandledScreen<?>) (Object) this);
+        }
+        
+        // Render furnace modules (if on furnace screen)
+        if (handler instanceof AbstractFurnaceScreenHandler) {
+            AbstractFurnaceScreenHandler furnaceHandler = (AbstractFurnaceScreenHandler) handler;
+            
+            // Render highlight fuel module
+            if (booster$highlightFuelModule != null && booster$highlightFuelModule.isEnabled()) {
+                booster$highlightFuelModule.renderHighlights(context, furnaceHandler, x, y);
+            }
+            
+            // Render estimated fuel time display
+            if (booster$estimatedFuelTimeModule != null && booster$estimatedFuelTimeModule.isEnabled()) {
+                booster$estimatedFuelTimeModule.renderTime(context, furnaceHandler, x, y);
+            }
         }
         
         // Render inventory progress bar widget (if enabled)

@@ -12,7 +12,8 @@
     "GameMenuScreenMixin",
     "DeathScreenMixin",
     "ClientPlayNetworkHandlerMixin",
-    "IntegratedServerLoaderMixin"
+    "IntegratedServerLoaderMixin",
+    "InGameHudMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -14,6 +14,7 @@ import net.shlomo1412.booster.client.BoosterClient;
 import net.shlomo1412.booster.client.module.modules.DeathCoordinatesModule;
 import net.shlomo1412.booster.client.module.modules.DeathInventoryModule;
 import net.shlomo1412.booster.client.module.modules.LastServerModule;
+import net.shlomo1412.booster.client.module.modules.RecoverItemsModule;
 import net.shlomo1412.booster.client.module.modules.TeleportToDeathModule;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -88,6 +89,13 @@ public abstract class ClientPlayNetworkHandlerMixin {
             // Delay the teleport slightly to ensure player is fully spawned
             MinecraftClient.getInstance().execute(() -> {
                 TeleportToDeathModule.onPlayerRespawn();
+            });
+        }
+        
+        // Handle pending item recovery
+        if (RecoverItemsModule.hasPendingRecovery()) {
+            MinecraftClient.getInstance().execute(() -> {
+                RecoverItemsModule.onPlayerRespawn();
             });
         }
     }

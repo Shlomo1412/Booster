@@ -4,24 +4,31 @@ import net.fabricmc.api.ClientModInitializer;
 import net.shlomo1412.booster.client.editor.ScreenEditorHandler;
 import net.shlomo1412.booster.client.module.ModuleManager;
 import net.shlomo1412.booster.client.module.modules.AutoArmorModule;
+import net.shlomo1412.booster.client.module.modules.ClearFurnaceModule;
 import net.shlomo1412.booster.client.module.modules.ClearGridModule;
 import net.shlomo1412.booster.client.module.modules.ConnectToServerModule;
 import net.shlomo1412.booster.client.module.modules.CopyIPModule;
 import net.shlomo1412.booster.client.module.modules.DatapacksFolderModule;
 import net.shlomo1412.booster.client.module.modules.DeathCoordinatesModule;
 import net.shlomo1412.booster.client.module.modules.DeathInventoryModule;
+import net.shlomo1412.booster.client.module.modules.EstimatedFuelTimeModule;
+import net.shlomo1412.booster.client.module.modules.HighlightFuelModule;
 import net.shlomo1412.booster.client.module.modules.InfiniteCraftModule;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
 import net.shlomo1412.booster.client.module.modules.LastServerModule;
 import net.shlomo1412.booster.client.module.modules.LastWorldModule;
 import net.shlomo1412.booster.client.module.modules.OpenScreenshotsModule;
 import net.shlomo1412.booster.client.module.modules.OpenWorldFolderModule;
+import net.shlomo1412.booster.client.module.modules.PinEstimatedTimeModule;
 import net.shlomo1412.booster.client.module.modules.ReconnectModule;
+import net.shlomo1412.booster.client.module.modules.RecoverItemsModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitGameModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToServersModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToWorldsModule;
 import net.shlomo1412.booster.client.module.modules.SearchBarModule;
 import net.shlomo1412.booster.client.module.modules.ServerInfoModule;
+import net.shlomo1412.booster.client.module.modules.ShowInventoryModule;
+import net.shlomo1412.booster.client.module.modules.SmartFuelModule;
 import net.shlomo1412.booster.client.module.modules.SortContainerModule;
 import net.shlomo1412.booster.client.module.modules.SortInventoryModule;
 import net.shlomo1412.booster.client.module.modules.StealStoreModule;
@@ -99,6 +106,17 @@ public class BoosterClient implements ClientModInitializer {
         manager.register(new DeathCoordinatesModule());
         manager.register(new TeleportToDeathModule());
         manager.register(new DeathInventoryModule());
+        manager.register(new RecoverItemsModule());
+        
+        // Furnace Screen Modules (Furnace, Blast Furnace, Smoker)
+        manager.register(new EstimatedFuelTimeModule());
+        manager.register(new PinEstimatedTimeModule());
+        manager.register(new SmartFuelModule());
+        manager.register(new HighlightFuelModule());
+        manager.register(new ClearFurnaceModule());
+        
+        // HUD Modules (non-GUI, keybind-based)
+        manager.register(new ShowInventoryModule());
         
         // Add more modules here as they are created
     }

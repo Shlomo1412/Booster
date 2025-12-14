@@ -306,4 +306,25 @@ public class DeathInventoryModule extends GUIModule {
         inventoryButton = null;
         showingInventory = false;
     }
+    
+    /**
+     * Gets the last recorded death inventory.
+     */
+    public static List<ItemStack> getLastDeathInventory() {
+        return lastDeathInventory;
+    }
+    
+    /**
+     * Gets the last recorded death armor.
+     */
+    public static ItemStack[] getLastDeathArmor() {
+        return lastDeathArmor;
+    }
+    
+    /**
+     * Gets the last recorded death offhand item.
+     */
+    public static ItemStack getLastDeathOffhand() {
+        return lastDeathOffhand;
+    }
 }
