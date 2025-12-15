@@ -3,7 +3,10 @@ package net.shlomo1412.booster.client;
 import net.fabricmc.api.ClientModInitializer;
 import net.shlomo1412.booster.client.editor.ScreenEditorHandler;
 import net.shlomo1412.booster.client.module.ModuleManager;
+import net.shlomo1412.booster.client.module.modules.AddCoordsModule;
 import net.shlomo1412.booster.client.module.modules.AutoArmorModule;
+import net.shlomo1412.booster.client.module.modules.ClearChatHistoryModule;
+import net.shlomo1412.booster.client.module.modules.ClearChatboxModule;
 import net.shlomo1412.booster.client.module.modules.ClearFurnaceModule;
 import net.shlomo1412.booster.client.module.modules.ClearGridModule;
 import net.shlomo1412.booster.client.module.modules.ConnectToServerModule;
@@ -28,6 +31,7 @@ import net.shlomo1412.booster.client.module.modules.SaveQuitGameModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToServersModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToWorldsModule;
 import net.shlomo1412.booster.client.module.modules.SearchBarModule;
+import net.shlomo1412.booster.client.module.modules.SearchMessagesModule;
 import net.shlomo1412.booster.client.module.modules.ServerInfoModule;
 import net.shlomo1412.booster.client.module.modules.ShowInventoryModule;
 import net.shlomo1412.booster.client.module.modules.SmartFuelModule;
@@ -121,6 +125,12 @@ public class BoosterClient implements ClientModInitializer {
         
         // HUD Modules (non-GUI, keybind-based)
         manager.register(new ShowInventoryModule());
+        
+        // Chat Screen Modules
+        manager.register(new ClearChatboxModule());
+        manager.register(new ClearChatHistoryModule());
+        manager.register(new AddCoordsModule());
+        manager.register(new SearchMessagesModule());
         
         // Add more modules here as they are created
     }

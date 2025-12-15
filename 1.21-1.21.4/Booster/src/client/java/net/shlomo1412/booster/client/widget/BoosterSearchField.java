@@ -2,6 +2,7 @@ package net.shlomo1412.booster.client.widget;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Selectable;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import net.shlomo1412.booster.client.editor.DraggableWidget;
@@ -21,8 +22,39 @@ public class BoosterSearchField extends TextFieldWidget implements DraggableWidg
     private int anchorX;
     private int anchorY;
     
+    // Skip keyboard navigation (for chat screen)
+    private boolean skipKeyboardNavigation = false;
+    
     public BoosterSearchField(int x, int y, int width, int height, Text placeholder) {
         super(MinecraftClient.getInstance().textRenderer, x, y, width, height, placeholder);
+    }
+    
+    /**
+     * Sets whether this field should skip keyboard navigation.
+     * When true, this field will not receive focus from arrow keys or tab.
+     * @param skip Whether to skip keyboard navigation
+     */
+    public void setSkipKeyboardNavigation(boolean skip) {
+        this.skipKeyboardNavigation = skip;
+    }
+    
+    /**
+     * @return Whether this field skips keyboard navigation
+     */
+    public boolean isSkipKeyboardNavigation() {
+        return skipKeyboardNavigation;
+    }
+    
+    /**
+     * Override to return NONE when skipKeyboardNavigation is true.
+     * This prevents the widget from being included in keyboard navigation focus cycling.
+     */
+    @Override
+    public Selectable.SelectionType getType() {
+        if (skipKeyboardNavigation) {
+            return Selectable.SelectionType.NONE;
+        }
+        return super.getType();
     }
     
     /**

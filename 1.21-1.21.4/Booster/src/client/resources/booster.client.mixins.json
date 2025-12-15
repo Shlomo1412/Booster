@@ -13,7 +13,9 @@
     "DeathScreenMixin",
     "ClientPlayNetworkHandlerMixin",
     "IntegratedServerLoaderMixin",
-    "InGameHudMixin"
+    "InGameHudMixin",
+    "ChatScreenMixin",
+    "ChatHudMixin"
   ],
   "injectors": {
     "defaultRequire": 1

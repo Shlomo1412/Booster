@@ -2,6 +2,7 @@ package net.shlomo1412.booster.client.widget;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Selectable;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -27,6 +28,9 @@ public class BoosterButton extends ButtonWidget implements DraggableWidget {
     
     // Display mode
     private ButtonDisplayMode displayMode = ButtonDisplayMode.AUTO;
+    
+    // Skip keyboard navigation (for chat screen buttons)
+    private boolean skipKeyboardNavigation = false;
     
     // Editor mode support
     private GUIModule parentModule;
@@ -110,6 +114,50 @@ public class BoosterButton extends ButtonWidget implements DraggableWidget {
      */
     public String getIcon() {
         return icon;
+    }
+    
+    /**
+     * Sets whether this button should skip keyboard navigation.
+     * When true, this button will not receive focus from arrow keys or tab.
+     * @param skip Whether to skip keyboard navigation
+     */
+    public void setSkipKeyboardNavigation(boolean skip) {
+        this.skipKeyboardNavigation = skip;
+    }
+    
+    /**
+     * @return Whether this button skips keyboard navigation
+     */
+    public boolean isSkipKeyboardNavigation() {
+        return skipKeyboardNavigation;
+    }
+    
+    /**
+     * Override to return NONE when skipKeyboardNavigation is true.
+     * This prevents the widget from being included in keyboard navigation focus cycling.
+     */
+    @Override
+    public Selectable.SelectionType getType() {
+        if (skipKeyboardNavigation) {
+            return Selectable.SelectionType.NONE;
+        }
+        return super.getType();
+    }
+    
+    /**
+     * Override to prevent keyboard navigation focus when skipKeyboardNavigation is true.
+     */
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // If we should skip keyboard nav, don't process arrow keys or tab
+        if (skipKeyboardNavigation) {
+            // Still allow Enter/Space to activate when already focused by mouse
+            if (keyCode == 257 || keyCode == 335 || keyCode == 32) { // Enter, Numpad Enter, Space
+                return super.keyPressed(keyCode, scanCode, modifiers);
+            }
+            return false;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     /**
