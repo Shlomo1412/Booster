@@ -16,6 +16,11 @@ import net.shlomo1412.booster.client.module.modules.DropAllModule;
 import net.shlomo1412.booster.client.module.modules.EstimatedFuelTimeModule;
 import net.shlomo1412.booster.client.module.modules.HighlightFuelModule;
 import net.shlomo1412.booster.client.module.modules.InfiniteCraftModule;
+import net.shlomo1412.booster.client.module.modules.LowAirAlertModule;
+import net.shlomo1412.booster.client.module.modules.LowDurabilityAlertModule;
+import net.shlomo1412.booster.client.module.modules.LowHealthAlertModule;
+import net.shlomo1412.booster.client.module.modules.LowHungerAlertModule;
+import net.shlomo1412.booster.client.module.modules.MentionedInChatAlertModule;
 import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
 import net.shlomo1412.booster.client.module.modules.LastServerModule;
 import net.shlomo1412.booster.client.module.modules.LastWorldModule;
@@ -121,6 +126,13 @@ public class BoosterClient implements ClientModInitializer {
         
         // HUD Modules (non-GUI, keybind-based)
         manager.register(new ShowInventoryModule());
+        
+        // Alert Modules (player notifications)
+        manager.register(new LowDurabilityAlertModule());
+        manager.register(new LowHealthAlertModule());
+        manager.register(new LowHungerAlertModule());
+        manager.register(new LowAirAlertModule());
+        manager.register(new MentionedInChatAlertModule());
         
         // Add more modules here as they are created
     }
