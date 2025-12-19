@@ -67,18 +67,20 @@ public class LowHealthAlertModule extends AlertModule {
             boolean healthDecreased = lastAlertedHealth > 0 && health < lastAlertedHealth;
             
             if ((justCrossedThreshold || healthDecreased) && canAlert()) {
-                // Build alert message
-                String message;
+                // Build alert message - use title + subtitle for better display
+                float hearts = health / 2.0f;
+                float maxHearts = maxHealth / 2.0f;
+                int percent = (int) ((health / maxHealth) * 100);
+                
+                String title = "❤ LOW HEALTH!";
+                String subtitle = String.format("%.1f/%.1f hearts (%d%%)", hearts, maxHearts, percent);
+                
                 if (showExactHealthSetting.getValue()) {
-                    float hearts = health / 2.0f;
-                    float maxHearts = maxHealth / 2.0f;
-                    int percent = (int) ((health / maxHealth) * 100);
-                    message = String.format("❤ LOW HEALTH: %.1f/%.1f (%d%%)", hearts, maxHearts, percent);
+                    sendAlert(title, subtitle);
                 } else {
-                    message = "❤ LOW HEALTH!";
+                    sendAlert(title);
                 }
                 
-                sendAlert(message);
                 lastAlertedHealth = health;
                 wasAboveThreshold = false;
             }

@@ -78,16 +78,19 @@ public class LowAirAlertModule extends AlertModule {
             boolean airDecreased = lastAlertedAir > 0 && air < lastAlertedAir;
             
             if ((justCrossedThreshold || airDecreased) && canAlert()) {
-                String message;
+                // Use title + subtitle for better display
+                float secondsLeft = air / 20.0f;  // 20 ticks per second
+                int percent = (int) ((air / (double) maxAir) * 100);
+                
+                String title = "🫧 LOW OXYGEN!";
+                String subtitle = String.format("%.1f seconds remaining!", secondsLeft);
+                
                 if (showExactAirSetting.getValue()) {
-                    float secondsLeft = air / 20.0f;  // 20 ticks per second
-                    int percent = (int) ((air / (double) maxAir) * 100);
-                    message = String.format("🫧 LOW AIR: %.1f sec (%d%%)", secondsLeft, percent);
+                    sendAlert(title, subtitle);
                 } else {
-                    message = "🫧 LOW AIR!";
+                    sendAlert(title);
                 }
                 
-                sendAlert(message);
                 lastAlertedAir = air;
                 wasAboveThreshold = false;
             }
@@ -98,7 +101,7 @@ public class LowAirAlertModule extends AlertModule {
         } else if (air <= 0) {
             // Out of air - drowning!
             if (canAlert()) {
-                sendAlert("🫧 DROWNING!");
+                sendAlert("🫧 DROWNING!", "Get to the surface!");
             }
         }
     }

@@ -6,9 +6,11 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.MathHelper;
+import net.shlomo1412.booster.client.module.AlertModule;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.Module;
 import net.shlomo1412.booster.client.module.ModuleManager;
+import net.shlomo1412.booster.client.module.ModuleSetting;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -46,6 +48,12 @@ public class BoosterConfigScreen extends Screen {
     private static final int ENABLED_COLOR = 0xFF44BB44;
     private static final int DISABLED_COLOR = 0xFF666666;
     
+    // Setting control dimensions
+    private static final int SETTING_HEIGHT = 24;
+    private static final int SETTING_BUTTON_WIDTH = 80;
+    private static final int SETTING_TOGGLE_WIDTH = 40;
+    private static final int COLOR_PREVIEW_SIZE = 16;
+    
     // Tabs/Categories
     private final Map<String, List<Module>> categories = new LinkedHashMap<>();
     private String activeCategory = "All";
@@ -64,6 +72,11 @@ public class BoosterConfigScreen extends Screen {
     
     // Selected module for details panel
     private Module selectedModule = null;
+    
+    // Interactive setting controls
+    private final List<SettingControl> settingControls = new ArrayList<>();
+    private ModuleSetting.ColorSetting editingColorSetting = null;
+    private int colorPickerX, colorPickerY;
     
     // Animation
     private float openAnimation = 0f;
@@ -420,6 +433,27 @@ public class BoosterConfigScreen extends Screen {
         context.drawTextWithShadow(this.textRenderer, statusText, contentX, contentY, statusColor);
         contentY += 20;
         
+        // Clear setting controls - they'll be rebuilt
+        settingControls.clear();
+        
+        // Interactive settings for AlertModule
+        if (selectedModule instanceof AlertModule alertModule && alertModule.hasSettings()) {
+            context.fill(contentX, contentY, contentX + contentWidth, contentY + 1, CARD_BORDER);
+            contentY += 10;
+            
+            context.drawTextWithShadow(this.textRenderer,
+                Text.literal("⚙ Settings").formatted(Formatting.WHITE, Formatting.BOLD),
+                contentX, contentY, TEXT_PRIMARY);
+            contentY += 18;
+            
+            // Render each setting with interactive controls
+            for (var setting : alertModule.getSettings()) {
+                contentY = renderSettingControl(context, contentX, contentY, contentWidth, 
+                    setting, alertModule, mouseX, mouseY);
+            }
+            contentY += 10;
+        }
+        
         // GUI Module specific info
         if (selectedModule instanceof GUIModule guiModule) {
             context.fill(contentX, contentY, contentX + contentWidth, contentY + 1, CARD_BORDER);
@@ -445,7 +479,7 @@ public class BoosterConfigScreen extends Screen {
             }
             contentY += 6;
             
-            // Show module settings if available
+            // Show module settings if available (for GUI modules, still show as read-only)
             if (guiModule.hasSettings()) {
                 context.fill(contentX, contentY, contentX + contentWidth, contentY + 1, CARD_BORDER);
                 contentY += 10;
@@ -543,6 +577,11 @@ public class BoosterConfigScreen extends Screen {
     
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // Handle setting control clicks first (in details panel)
+        if (handleSettingClick(mouseX, mouseY)) {
+            return true;
+        }
+        
         // Tab clicks
         int tabY = HEADER_HEIGHT;
         int tabX = 0;
@@ -647,5 +686,245 @@ public class BoosterConfigScreen extends Screen {
     @Override
     public boolean shouldPause() {
         return false;
+    }
+    
+    /**
+     * Renders an interactive setting control and returns the new Y position.
+     */
+    private int renderSettingControl(DrawContext context, int x, int y, int width,
+                                      ModuleSetting<?> setting, AlertModule module,
+                                      int mouseX, int mouseY) {
+        // Setting name
+        context.drawTextWithShadow(this.textRenderer, setting.getName(), x, y + 4, TEXT_SECONDARY);
+        
+        int controlX = x + width - SETTING_BUTTON_WIDTH - 4;
+        int controlY = y;
+        
+        // Render based on setting type
+        if (setting instanceof ModuleSetting.BooleanSetting boolSetting) {
+            // Toggle button
+            boolean value = boolSetting.getValue();
+            int toggleBg = value ? 0xFF2A5A2A : 0xFF4A2A2A;
+            int toggleBorder = value ? 0xFF44AA44 : 0xFFAA4444;
+            boolean hovered = mouseX >= controlX && mouseX < controlX + SETTING_TOGGLE_WIDTH &&
+                             mouseY >= controlY && mouseY < controlY + SETTING_HEIGHT;
+            
+            if (hovered) toggleBg = value ? 0xFF3A6A3A : 0xFF5A3A3A;
+            
+            context.fill(controlX, controlY, controlX + SETTING_TOGGLE_WIDTH, controlY + SETTING_HEIGHT, toggleBg);
+            drawBorder(context, controlX, controlY, SETTING_TOGGLE_WIDTH, SETTING_HEIGHT, toggleBorder);
+            
+            String toggleText = value ? "ON" : "OFF";
+            int textWidth = this.textRenderer.getWidth(toggleText);
+            context.drawTextWithShadow(this.textRenderer, toggleText,
+                controlX + (SETTING_TOGGLE_WIDTH - textWidth) / 2, controlY + 8, TEXT_PRIMARY);
+            
+            settingControls.add(new SettingControl(setting, module, controlX, controlY, 
+                SETTING_TOGGLE_WIDTH, SETTING_HEIGHT, SettingControlType.BOOLEAN));
+                
+        } else if (setting instanceof ModuleSetting.EnumSetting<?> enumSetting) {
+            // Dropdown-style button (cycles on click)
+            String valueText = enumSetting.getValue().toString();
+            valueText = trimTextToWidth(valueText, SETTING_BUTTON_WIDTH - 20);
+            
+            boolean hovered = mouseX >= controlX && mouseX < controlX + SETTING_BUTTON_WIDTH &&
+                             mouseY >= controlY && mouseY < controlY + SETTING_HEIGHT;
+            int bg = hovered ? 0xFF3A3A4A : 0xFF2A2A3A;
+            
+            context.fill(controlX, controlY, controlX + SETTING_BUTTON_WIDTH, controlY + SETTING_HEIGHT, bg);
+            drawBorder(context, controlX, controlY, SETTING_BUTTON_WIDTH, SETTING_HEIGHT, 0xFF5588FF);
+            
+            int textWidth = this.textRenderer.getWidth(valueText);
+            context.drawTextWithShadow(this.textRenderer, valueText,
+                controlX + (SETTING_BUTTON_WIDTH - textWidth) / 2, controlY + 8, 0xFF88CCFF);
+            
+            // Arrow indicator
+            context.drawTextWithShadow(this.textRenderer, "▼", 
+                controlX + SETTING_BUTTON_WIDTH - 12, controlY + 8, TEXT_DIM);
+            
+            settingControls.add(new SettingControl(setting, module, controlX, controlY,
+                SETTING_BUTTON_WIDTH, SETTING_HEIGHT, SettingControlType.ENUM));
+                
+        } else if (setting instanceof ModuleSetting.NumberSetting numSetting) {
+            // Number with +/- buttons
+            int value = numSetting.getValue();
+            int btnSize = SETTING_HEIGHT;
+            int numWidth = SETTING_BUTTON_WIDTH - btnSize * 2 - 4;
+            
+            // Minus button
+            boolean minusHovered = mouseX >= controlX && mouseX < controlX + btnSize &&
+                                   mouseY >= controlY && mouseY < controlY + SETTING_HEIGHT;
+            int minusBg = minusHovered ? 0xFF4A3A3A : 0xFF3A2A2A;
+            context.fill(controlX, controlY, controlX + btnSize, controlY + SETTING_HEIGHT, minusBg);
+            drawBorder(context, controlX, controlY, btnSize, SETTING_HEIGHT, 0xFFAA6644);
+            context.drawTextWithShadow(this.textRenderer, "-", controlX + btnSize / 2 - 2, controlY + 8, TEXT_PRIMARY);
+            
+            settingControls.add(new SettingControl(setting, module, controlX, controlY,
+                btnSize, SETTING_HEIGHT, SettingControlType.NUMBER_MINUS));
+            
+            // Number display
+            int numX = controlX + btnSize + 2;
+            context.fill(numX, controlY, numX + numWidth, controlY + SETTING_HEIGHT, 0xFF1A1A2A);
+            String numText = String.valueOf(value);
+            int numTextWidth = this.textRenderer.getWidth(numText);
+            context.drawTextWithShadow(this.textRenderer, numText,
+                numX + (numWidth - numTextWidth) / 2, controlY + 8, 0xFFFFCC44);
+            
+            // Plus button
+            int plusX = numX + numWidth + 2;
+            boolean plusHovered = mouseX >= plusX && mouseX < plusX + btnSize &&
+                                  mouseY >= controlY && mouseY < controlY + SETTING_HEIGHT;
+            int plusBg = plusHovered ? 0xFF3A4A3A : 0xFF2A3A2A;
+            context.fill(plusX, controlY, plusX + btnSize, controlY + SETTING_HEIGHT, plusBg);
+            drawBorder(context, plusX, controlY, btnSize, SETTING_HEIGHT, 0xFF66AA44);
+            context.drawTextWithShadow(this.textRenderer, "+", plusX + btnSize / 2 - 2, controlY + 8, TEXT_PRIMARY);
+            
+            settingControls.add(new SettingControl(setting, module, plusX, controlY,
+                btnSize, SETTING_HEIGHT, SettingControlType.NUMBER_PLUS));
+                
+        } else if (setting instanceof ModuleSetting.ColorSetting colorSetting) {
+            // Color preview with click to edit
+            int color = colorSetting.getValue();
+            boolean hovered = mouseX >= controlX && mouseX < controlX + SETTING_BUTTON_WIDTH &&
+                             mouseY >= controlY && mouseY < controlY + SETTING_HEIGHT;
+            
+            int bg = hovered ? 0xFF3A3A4A : 0xFF2A2A3A;
+            context.fill(controlX, controlY, controlX + SETTING_BUTTON_WIDTH, controlY + SETTING_HEIGHT, bg);
+            drawBorder(context, controlX, controlY, SETTING_BUTTON_WIDTH, SETTING_HEIGHT, 0xFF888888);
+            
+            // Color preview box
+            int previewX = controlX + 4;
+            int previewY = controlY + (SETTING_HEIGHT - COLOR_PREVIEW_SIZE) / 2;
+            context.fill(previewX, previewY, previewX + COLOR_PREVIEW_SIZE, previewY + COLOR_PREVIEW_SIZE, color | 0xFF000000);
+            drawBorder(context, previewX, previewY, COLOR_PREVIEW_SIZE, COLOR_PREVIEW_SIZE, 0xFFFFFFFF);
+            
+            // Hex value
+            String hexText = String.format("#%06X", color & 0xFFFFFF);
+            context.drawTextWithShadow(this.textRenderer, hexText,
+                previewX + COLOR_PREVIEW_SIZE + 4, controlY + 8, TEXT_SECONDARY);
+            
+            settingControls.add(new SettingControl(setting, module, controlX, controlY,
+                SETTING_BUTTON_WIDTH, SETTING_HEIGHT, SettingControlType.COLOR));
+        }
+        
+        return y + SETTING_HEIGHT + 4;
+    }
+    
+    /**
+     * Draws a 1-pixel border around a rectangle.
+     */
+    private void drawBorder(DrawContext context, int x, int y, int width, int height, int color) {
+        context.fill(x, y, x + width, y + 1, color);  // Top
+        context.fill(x, y + height - 1, x + width, y + height, color);  // Bottom
+        context.fill(x, y, x + 1, y + height, color);  // Left
+        context.fill(x + width - 1, y, x + width, y + height, color);  // Right
+    }
+    
+    /**
+     * Handles clicks on setting controls.
+     */
+    private boolean handleSettingClick(double mouseX, double mouseY) {
+        for (SettingControl control : settingControls) {
+            if (mouseX >= control.x && mouseX < control.x + control.width &&
+                mouseY >= control.y && mouseY < control.y + control.height) {
+                
+                switch (control.type) {
+                    case BOOLEAN -> {
+                        ModuleSetting.BooleanSetting boolSetting = (ModuleSetting.BooleanSetting) control.setting;
+                        boolSetting.setValue(!boolSetting.getValue());
+                        ModuleManager.getInstance().saveConfig();
+                        return true;
+                    }
+                    case ENUM -> {
+                        cycleEnumSetting(control.setting);
+                        ModuleManager.getInstance().saveConfig();
+                        return true;
+                    }
+                    case NUMBER_MINUS -> {
+                        ModuleSetting.NumberSetting numSetting = (ModuleSetting.NumberSetting) control.setting;
+                        int newValue = Math.max(numSetting.getMin(), numSetting.getValue() - 1);
+                        numSetting.setValue(newValue);
+                        ModuleManager.getInstance().saveConfig();
+                        return true;
+                    }
+                    case NUMBER_PLUS -> {
+                        ModuleSetting.NumberSetting numSetting = (ModuleSetting.NumberSetting) control.setting;
+                        int newValue = Math.min(numSetting.getMax(), numSetting.getValue() + 1);
+                        numSetting.setValue(newValue);
+                        ModuleManager.getInstance().saveConfig();
+                        return true;
+                    }
+                    case COLOR -> {
+                        // Open color picker (simplified - cycle through preset colors)
+                        cycleColorSetting((ModuleSetting.ColorSetting) control.setting);
+                        ModuleManager.getInstance().saveConfig();
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * Cycles through enum values.
+     */
+    @SuppressWarnings("unchecked")
+    private <E extends Enum<E>> void cycleEnumSetting(ModuleSetting<?> setting) {
+        if (setting instanceof ModuleSetting.EnumSetting<?> enumSetting) {
+            E[] values = (E[]) ((ModuleSetting.EnumSetting<E>) enumSetting).getOptions();
+            E current = (E) enumSetting.getValue();
+            int currentIndex = 0;
+            for (int i = 0; i < values.length; i++) {
+                if (values[i] == current) {
+                    currentIndex = i;
+                    break;
+                }
+            }
+            int nextIndex = (currentIndex + 1) % values.length;
+            ((ModuleSetting.EnumSetting<E>) enumSetting).setValue(values[nextIndex]);
+        }
+    }
+    
+    /**
+     * Cycles through preset colors for color settings.
+     */
+    private void cycleColorSetting(ModuleSetting.ColorSetting setting) {
+        int[] presetColors = {
+            0xFFFF5555,  // Red
+            0xFFFF5500,  // Orange
+            0xFFFFAA00,  // Gold
+            0xFFFFFF55,  // Yellow
+            0xFF55FF55,  // Green
+            0xFF55FFFF,  // Cyan
+            0xFF5555FF,  // Blue
+            0xFFAA55FF,  // Purple
+            0xFFFF55FF,  // Pink
+            0xFFFFFFFF,  // White
+        };
+        
+        int current = setting.getValue() | 0xFF000000;
+        int nextIndex = 0;
+        for (int i = 0; i < presetColors.length; i++) {
+            if (presetColors[i] == current) {
+                nextIndex = (i + 1) % presetColors.length;
+                break;
+            }
+        }
+        setting.setValue(presetColors[nextIndex]);
+    }
+    
+    /**
+     * Record for tracking clickable setting controls.
+     */
+    private record SettingControl(
+        ModuleSetting<?> setting,
+        AlertModule module,
+        int x, int y, int width, int height,
+        SettingControlType type
+    ) {}
+    
+    private enum SettingControlType {
+        BOOLEAN, ENUM, NUMBER_MINUS, NUMBER_PLUS, COLOR
     }
 }

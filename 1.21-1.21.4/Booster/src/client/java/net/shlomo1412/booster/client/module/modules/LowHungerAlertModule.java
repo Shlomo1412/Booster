@@ -78,16 +78,19 @@ public class LowHungerAlertModule extends AlertModule {
             boolean hungerDecreased = lastAlertedHunger > 0 && foodLevel < lastAlertedHunger;
             
             if ((justCrossedThreshold || hungerDecreased) && canAlert()) {
-                String message;
+                // Use title + subtitle for better display
+                float drumsticks = foodLevel / 2.0f;
+                int percent = (int) ((foodLevel / 20.0) * 100);
+                
+                String title = "🍖 LOW HUNGER!";
+                String subtitle = String.format("%.1f/10 drumsticks (%d%%)", drumsticks, percent);
+                
                 if (showExactHungerSetting.getValue()) {
-                    float drumsticks = foodLevel / 2.0f;
-                    int percent = (int) ((foodLevel / 20.0) * 100);
-                    message = String.format("🍖 LOW HUNGER: %.1f/10 (%d%%)", drumsticks, percent);
+                    sendAlert(title, subtitle);
                 } else {
-                    message = "🍖 LOW HUNGER!";
+                    sendAlert(title);
                 }
                 
-                sendAlert(message);
                 lastAlertedHunger = foodLevel;
                 wasAboveThreshold = false;
             }
@@ -99,7 +102,7 @@ public class LowHungerAlertModule extends AlertModule {
             // Check saturation if enabled and hunger is full but saturation is low
             if (alertOnSaturationSetting.getValue() && saturation < 1.0f && foodLevel > 17) {
                 if (canAlert()) {
-                    sendAlert("🍖 Low saturation - eat soon!");
+                    sendAlert("🍖 LOW SATURATION!", "Eat soon to restore stamina");
                 }
             }
         }

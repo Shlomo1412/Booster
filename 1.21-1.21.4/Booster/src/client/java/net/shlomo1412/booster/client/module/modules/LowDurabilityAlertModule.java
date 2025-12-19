@@ -130,14 +130,14 @@ public class LowDurabilityAlertModule extends AlertModule {
                     lastWarnedOffHandDurability = currentDurability;
                 }
                 
-                // Send alert
+                // Send alert - use title + subtitle for better display
                 String itemName = stack.getName().getString();
                 int percent = (int) ((currentDurability / (double) maxDamage) * 100);
                 
-                String message = String.format("⚠ %s low durability: %d/%d (%d%%)", 
-                    itemName, currentDurability, maxDamage, percent);
+                String title = "⚠ LOW DURABILITY!";
+                String subtitle = String.format("%s: %d/%d (%d%%)", itemName, currentDurability, maxDamage, percent);
                 
-                sendAlert(message);
+                sendAlert(title, subtitle);
             }
         } else if (currentDurability > threshold) {
             // Reset warning if durability recovered
