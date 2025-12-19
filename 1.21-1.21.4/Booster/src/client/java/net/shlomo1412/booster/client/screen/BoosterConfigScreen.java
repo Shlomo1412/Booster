@@ -27,10 +27,11 @@ public class BoosterConfigScreen extends Screen {
     private static final int HEADER_HEIGHT = 50;
     private static final int TAB_HEIGHT = 28;
     private static final int TAB_WIDTH = 100;
-    private static final int SIDEBAR_WIDTH = 180;
+    private static final int SIDEBAR_WIDTH = 220;  // Increased for more room
     private static final int CONTENT_PADDING = 16;
     private static final int MODULE_CARD_HEIGHT = 80;
     private static final int MODULE_CARD_SPACING = 8;
+    private static final int SEARCH_BAR_HEIGHT = 24;
     
     // Colors
     private static final int BG_COLOR = 0xFF0D0D0D;
@@ -78,6 +79,12 @@ public class BoosterConfigScreen extends Screen {
     private ModuleSetting.ColorSetting editingColorSetting = null;
     private int colorPickerX, colorPickerY;
     
+    // Search functionality
+    private String searchQuery = "";
+    private List<Module> filteredModules = new ArrayList<>();
+    private boolean searchBarFocused = false;
+    private int searchBarX, searchBarY, searchBarWidth;
+    
     // Animation
     private float openAnimation = 0f;
     
@@ -88,6 +95,26 @@ public class BoosterConfigScreen extends Screen {
         super(Text.literal("Booster Configuration"));
         this.parent = parent;
         initializeCategories();
+        updateFilteredModules();
+    }
+    
+    private void updateFilteredModules() {
+        filteredModules.clear();
+        List<Module> categoryModules = categories.get(activeCategory);
+        if (categoryModules == null) return;
+        
+        if (searchQuery.isEmpty()) {
+            filteredModules.addAll(categoryModules);
+        } else {
+            String query = searchQuery.toLowerCase();
+            for (Module module : categoryModules) {
+                if (module.getName().toLowerCase().contains(query) ||
+                    module.getId().toLowerCase().contains(query) ||
+                    module.getDescription().toLowerCase().contains(query)) {
+                    filteredModules.add(module);
+                }
+            }
+        }
     }
     
     private void initializeCategories() {
@@ -198,6 +225,13 @@ public class BoosterConfigScreen extends Screen {
         int totalCount = ModuleManager.getInstance().getModules().size();
         String countText = enabledCount + "/" + totalCount + " modules enabled";
         int countWidth = this.textRenderer.getWidth(countText);
+        
+        // Search bar in header (next to module count)
+        searchBarWidth = 180;
+        searchBarX = this.width - countWidth - 60 - searchBarWidth;
+        searchBarY = 13;
+        renderSearchBar(context, searchBarX, searchBarY, searchBarWidth, mouseX, mouseY);
+        
         context.drawTextWithShadow(this.textRenderer, countText, 
             this.width - countWidth - 40, 20, TEXT_DIM);
     }
@@ -239,24 +273,28 @@ public class BoosterConfigScreen extends Screen {
     
     private void renderModuleList(DrawContext context, int x, int y, int width, int height, 
                                    int mouseX, int mouseY) {
-        List<Module> modules = categories.get(activeCategory);
-        if (modules == null || modules.isEmpty()) {
-            context.drawCenteredTextWithShadow(this.textRenderer, "No modules in this category",
-                x + width / 2, y + height / 2, TEXT_DIM);
+        // Module list starts at y (search bar is now in header)
+        int listY = y;
+        int listHeight = height;
+        
+        if (filteredModules.isEmpty()) {
+            String msg = searchQuery.isEmpty() ? "No modules in this category" : "No modules match \"" + searchQuery + "\"";
+            context.drawCenteredTextWithShadow(this.textRenderer, msg,
+                x + width / 2, listY + listHeight / 2, TEXT_DIM);
             return;
         }
         
         // Calculate total content height and max scroll
-        int totalHeight = modules.size() * (MODULE_CARD_HEIGHT + MODULE_CARD_SPACING);
-        maxScrollOffset = Math.max(0, totalHeight - height + CONTENT_PADDING * 2);
+        int totalHeight = filteredModules.size() * (MODULE_CARD_HEIGHT + MODULE_CARD_SPACING);
+        maxScrollOffset = Math.max(0, totalHeight - listHeight + CONTENT_PADDING * 2);
         
         // Scissor for clipping
-        context.enableScissor(x, y, x + width, y + height);
+        context.enableScissor(x, listY, x + width, listY + listHeight);
         
-        int cardY = y + CONTENT_PADDING - (int) scrollOffset;
+        int cardY = listY + CONTENT_PADDING - (int) scrollOffset;
         
-        for (Module module : modules) {
-            if (cardY + MODULE_CARD_HEIGHT >= y && cardY < y + height) {
+        for (Module module : filteredModules) {
+            if (cardY + MODULE_CARD_HEIGHT >= listY && cardY < listY + listHeight) {
                 renderModuleCard(context, x, cardY, width - CONTENT_PADDING, module, mouseX, mouseY);
             }
             cardY += MODULE_CARD_HEIGHT + MODULE_CARD_SPACING;
@@ -269,15 +307,53 @@ public class BoosterConfigScreen extends Screen {
             // Top fade
             for (int i = 0; i < 20; i++) {
                 int alpha = (int) ((1 - i / 20f) * 200);
-                context.fill(x, y + i, x + width, y + i + 1, (alpha << 24) | 0x0D0D0D);
+                context.fill(x, listY + i, x + width, listY + i + 1, (alpha << 24) | 0x0D0D0D);
             }
         }
         if (scrollOffset < maxScrollOffset) {
             // Bottom fade
             for (int i = 0; i < 20; i++) {
                 int alpha = (int) ((1 - i / 20f) * 200);
-                context.fill(x, y + height - i - 1, x + width, y + height - i, (alpha << 24) | 0x0D0D0D);
+                context.fill(x, listY + listHeight - i - 1, x + width, listY + listHeight - i, (alpha << 24) | 0x0D0D0D);
             }
+        }
+    }
+    
+    /**
+     * Renders the search bar.
+     */
+    private void renderSearchBar(DrawContext context, int x, int y, int width, int mouseX, int mouseY) {
+        // Background
+        boolean hovered = mouseX >= x && mouseX < x + width &&
+                         mouseY >= y && mouseY < y + SEARCH_BAR_HEIGHT;
+        int bg = searchBarFocused ? 0xFF333333 : (hovered ? 0xFF2A2A2A : 0xFF1A1A1A);
+        int borderColor = searchBarFocused ? ACCENT_COLOR : 0xFF444444;
+        context.fill(x, y, x + width, y + SEARCH_BAR_HEIGHT, bg);
+        drawBorder(context, x, y, width, SEARCH_BAR_HEIGHT, borderColor);
+        
+        // Search icon
+        context.drawTextWithShadow(this.textRenderer, "🔍", x + 4, y + 7, searchBarFocused ? ACCENT_COLOR : TEXT_DIM);
+        
+        // Search text or placeholder
+        int textX = x + 18;
+        if (searchQuery.isEmpty()) {
+            context.drawTextWithShadow(this.textRenderer, "Search...", textX, y + 7, TEXT_DIM);
+        } else {
+            String displayText = trimTextToWidth(searchQuery, width - 36);
+            context.drawTextWithShadow(this.textRenderer, displayText, textX, y + 7, TEXT_PRIMARY);
+            
+            // Clear button
+            int clearX = x + width - 14;
+            boolean clearHovered = mouseX >= clearX && mouseX < clearX + 12 &&
+                                   mouseY >= y && mouseY < y + SEARCH_BAR_HEIGHT;
+            int clearColor = clearHovered ? 0xFFFF5555 : TEXT_DIM;
+            context.drawTextWithShadow(this.textRenderer, "✕", clearX, y + 7, clearColor);
+        }
+        
+        // Blinking cursor when focused
+        if (searchBarFocused && (System.currentTimeMillis() / 500) % 2 == 0) {
+            int cursorX = textX + this.textRenderer.getWidth(searchQuery);
+            context.fill(cursorX, y + 5, cursorX + 1, y + SEARCH_BAR_HEIGHT - 5, TEXT_PRIMARY);
         }
     }
     
@@ -577,6 +653,26 @@ public class BoosterConfigScreen extends Screen {
     
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // Handle search bar click
+        if (mouseX >= searchBarX && mouseX < searchBarX + searchBarWidth &&
+            mouseY >= searchBarY && mouseY < searchBarY + SEARCH_BAR_HEIGHT) {
+            
+            // Check for clear button click
+            if (!searchQuery.isEmpty()) {
+                int clearX = searchBarX + searchBarWidth - 14;
+                if (mouseX >= clearX && mouseX < clearX + 12) {
+                    searchQuery = "";
+                    updateFilteredModules();
+                    return true;
+                }
+            }
+            
+            searchBarFocused = true;
+            return true;
+        } else {
+            searchBarFocused = false;
+        }
+        
         // Handle setting control clicks first (in details panel)
         if (handleSettingClick(mouseX, mouseY)) {
             return true;
@@ -591,21 +687,22 @@ public class BoosterConfigScreen extends Screen {
                 activeCategory = category;
                 scrollOffset = 0;
                 targetScrollOffset = 0;
+                searchQuery = ""; // Clear search on tab change
+                updateFilteredModules(); // Update the filtered list for new category
                 return true;
             }
             tabX += TAB_WIDTH;
         }
         
-        // Module card clicks
+        // Module card clicks - use filtered modules
         int contentY = HEADER_HEIGHT + TAB_HEIGHT;
         int contentHeight = this.height - contentY;
         int listWidth = this.width - SIDEBAR_WIDTH - CONTENT_PADDING * 2;
         
-        List<Module> modules = categories.get(activeCategory);
-        if (modules != null) {
+        if (filteredModules != null && !filteredModules.isEmpty()) {
             int cardY = contentY + CONTENT_PADDING - (int) scrollOffset;
             
-            for (Module module : modules) {
+            for (Module module : filteredModules) {
                 int cardX = CONTENT_PADDING;
                 int cardWidth = listWidth - CONTENT_PADDING;
                 
@@ -635,6 +732,41 @@ public class BoosterConfigScreen extends Screen {
         }
         
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+    
+    @Override
+    public boolean charTyped(char chr, int modifiers) {
+        if (searchBarFocused) {
+            if (chr >= ' ') { // Printable characters
+                searchQuery += chr;
+                scrollOffset = 0; // Reset scroll when searching
+                updateFilteredModules(); // Update results
+                return true;
+            }
+        }
+        return super.charTyped(chr, modifiers);
+    }
+    
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (searchBarFocused) {
+            if (keyCode == 259) { // Backspace
+                if (!searchQuery.isEmpty()) {
+                    searchQuery = searchQuery.substring(0, searchQuery.length() - 1);
+                    updateFilteredModules(); // Update results
+                }
+                return true;
+            } else if (keyCode == 256) { // Escape
+                if (!searchQuery.isEmpty()) {
+                    searchQuery = "";
+                    updateFilteredModules(); // Update results
+                    return true;
+                } else {
+                    searchBarFocused = false;
+                }
+            }
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
     
     @Override
@@ -690,66 +822,69 @@ public class BoosterConfigScreen extends Screen {
     
     /**
      * Renders an interactive setting control and returns the new Y position.
+     * Uses stacked layout: name on top, control below.
      */
     private int renderSettingControl(DrawContext context, int x, int y, int width,
                                       ModuleSetting<?> setting, AlertModule module,
                                       int mouseX, int mouseY) {
-        // Setting name
-        context.drawTextWithShadow(this.textRenderer, setting.getName(), x, y + 4, TEXT_SECONDARY);
+        // Setting name on its own line
+        context.drawTextWithShadow(this.textRenderer, setting.getName(), x, y, TEXT_SECONDARY);
         
-        int controlX = x + width - SETTING_BUTTON_WIDTH - 4;
-        int controlY = y;
+        // Control on the next line
+        int controlY = y + 12;
+        int controlX = x;
+        int controlWidth = width - 8; // Full width for controls
         
         // Render based on setting type
         if (setting instanceof ModuleSetting.BooleanSetting boolSetting) {
-            // Toggle button
+            // Toggle button - full width
             boolean value = boolSetting.getValue();
             int toggleBg = value ? 0xFF2A5A2A : 0xFF4A2A2A;
             int toggleBorder = value ? 0xFF44AA44 : 0xFFAA4444;
-            boolean hovered = mouseX >= controlX && mouseX < controlX + SETTING_TOGGLE_WIDTH &&
+            boolean hovered = mouseX >= controlX && mouseX < controlX + controlWidth &&
                              mouseY >= controlY && mouseY < controlY + SETTING_HEIGHT;
             
             if (hovered) toggleBg = value ? 0xFF3A6A3A : 0xFF5A3A3A;
             
-            context.fill(controlX, controlY, controlX + SETTING_TOGGLE_WIDTH, controlY + SETTING_HEIGHT, toggleBg);
-            drawBorder(context, controlX, controlY, SETTING_TOGGLE_WIDTH, SETTING_HEIGHT, toggleBorder);
+            context.fill(controlX, controlY, controlX + controlWidth, controlY + SETTING_HEIGHT, toggleBg);
+            drawBorder(context, controlX, controlY, controlWidth, SETTING_HEIGHT, toggleBorder);
             
             String toggleText = value ? "ON" : "OFF";
             int textWidth = this.textRenderer.getWidth(toggleText);
             context.drawTextWithShadow(this.textRenderer, toggleText,
-                controlX + (SETTING_TOGGLE_WIDTH - textWidth) / 2, controlY + 8, TEXT_PRIMARY);
+                controlX + (controlWidth - textWidth) / 2, controlY + 8, TEXT_PRIMARY);
             
             settingControls.add(new SettingControl(setting, module, controlX, controlY, 
-                SETTING_TOGGLE_WIDTH, SETTING_HEIGHT, SettingControlType.BOOLEAN));
+                controlWidth, SETTING_HEIGHT, SettingControlType.BOOLEAN));
                 
         } else if (setting instanceof ModuleSetting.EnumSetting<?> enumSetting) {
-            // Dropdown-style button (cycles on click)
+            // Dropdown-style button (cycles on click) - full width
             String valueText = enumSetting.getValue().toString();
-            valueText = trimTextToWidth(valueText, SETTING_BUTTON_WIDTH - 20);
+            valueText = trimTextToWidth(valueText, controlWidth - 20);
             
-            boolean hovered = mouseX >= controlX && mouseX < controlX + SETTING_BUTTON_WIDTH &&
+            boolean hovered = mouseX >= controlX && mouseX < controlX + controlWidth &&
                              mouseY >= controlY && mouseY < controlY + SETTING_HEIGHT;
             int bg = hovered ? 0xFF3A3A4A : 0xFF2A2A3A;
             
-            context.fill(controlX, controlY, controlX + SETTING_BUTTON_WIDTH, controlY + SETTING_HEIGHT, bg);
-            drawBorder(context, controlX, controlY, SETTING_BUTTON_WIDTH, SETTING_HEIGHT, 0xFF5588FF);
+            context.fill(controlX, controlY, controlX + controlWidth, controlY + SETTING_HEIGHT, bg);
+            drawBorder(context, controlX, controlY, controlWidth, SETTING_HEIGHT, 0xFF5588FF);
             
             int textWidth = this.textRenderer.getWidth(valueText);
             context.drawTextWithShadow(this.textRenderer, valueText,
-                controlX + (SETTING_BUTTON_WIDTH - textWidth) / 2, controlY + 8, 0xFF88CCFF);
+                controlX + (controlWidth - textWidth) / 2, controlY + 8, 0xFF88CCFF);
             
             // Arrow indicator
             context.drawTextWithShadow(this.textRenderer, "▼", 
-                controlX + SETTING_BUTTON_WIDTH - 12, controlY + 8, TEXT_DIM);
+                controlX + controlWidth - 12, controlY + 8, TEXT_DIM);
             
             settingControls.add(new SettingControl(setting, module, controlX, controlY,
-                SETTING_BUTTON_WIDTH, SETTING_HEIGHT, SettingControlType.ENUM));
+                controlWidth, SETTING_HEIGHT, SettingControlType.ENUM));
                 
         } else if (setting instanceof ModuleSetting.NumberSetting numSetting) {
-            // Number with +/- buttons
+            // Number with +/- buttons - full width
             int value = numSetting.getValue();
             int btnSize = SETTING_HEIGHT;
-            int numWidth = SETTING_BUTTON_WIDTH - btnSize * 2 - 4;
+            int numWidth = controlWidth - btnSize * 2 - 4;
             
             // Minus button
             boolean minusHovered = mouseX >= controlX && mouseX < controlX + btnSize &&
@@ -783,14 +918,14 @@ public class BoosterConfigScreen extends Screen {
                 btnSize, SETTING_HEIGHT, SettingControlType.NUMBER_PLUS));
                 
         } else if (setting instanceof ModuleSetting.ColorSetting colorSetting) {
-            // Color preview with click to edit
+            // Color preview with click to edit - full width
             int color = colorSetting.getValue();
-            boolean hovered = mouseX >= controlX && mouseX < controlX + SETTING_BUTTON_WIDTH &&
+            boolean hovered = mouseX >= controlX && mouseX < controlX + controlWidth &&
                              mouseY >= controlY && mouseY < controlY + SETTING_HEIGHT;
             
             int bg = hovered ? 0xFF3A3A4A : 0xFF2A2A3A;
-            context.fill(controlX, controlY, controlX + SETTING_BUTTON_WIDTH, controlY + SETTING_HEIGHT, bg);
-            drawBorder(context, controlX, controlY, SETTING_BUTTON_WIDTH, SETTING_HEIGHT, 0xFF888888);
+            context.fill(controlX, controlY, controlX + controlWidth, controlY + SETTING_HEIGHT, bg);
+            drawBorder(context, controlX, controlY, controlWidth, SETTING_HEIGHT, 0xFF888888);
             
             // Color preview box
             int previewX = controlX + 4;
@@ -804,10 +939,11 @@ public class BoosterConfigScreen extends Screen {
                 previewX + COLOR_PREVIEW_SIZE + 4, controlY + 8, TEXT_SECONDARY);
             
             settingControls.add(new SettingControl(setting, module, controlX, controlY,
-                SETTING_BUTTON_WIDTH, SETTING_HEIGHT, SettingControlType.COLOR));
+                controlWidth, SETTING_HEIGHT, SettingControlType.COLOR));
         }
         
-        return y + SETTING_HEIGHT + 4;
+        // Return y + label height + control height + spacing
+        return y + 12 + SETTING_HEIGHT + 6;
     }
     
     /**
