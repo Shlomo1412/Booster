@@ -16,7 +16,7 @@ public abstract class GUIModule extends Module {
     // Per-widget settings stored by widget ID
     private final Map<String, WidgetSettings> widgetSettings = new HashMap<>();
     
-    // Loaded values from config (before defaults are known) - Object[] for int values + display mode
+    // Loaded values from config (before defaults are known) - Object[] for int values + display/texture modes
     private final Map<String, Object[]> loadedWidgetValues = new HashMap<>();
     
     // Module settings (colors, enums, etc.) - LinkedHashMap preserves insertion order
@@ -66,6 +66,9 @@ public abstract class GUIModule extends Module {
                 if (loaded.length > 4 && loaded[4] != null) {
                     settings.setDisplayMode((net.shlomo1412.booster.client.widget.ButtonDisplayMode) loaded[4]);
                 }
+                if (loaded.length > 5 && loaded[5] != null) {
+                    settings.setTextureMode((net.shlomo1412.booster.client.widget.WidgetTextureMode) loaded[5]);
+                }
             }
             
             widgetSettings.put(widgetId, settings);
@@ -87,7 +90,17 @@ public abstract class GUIModule extends Module {
      */
     public void loadWidgetSettings(String widgetId, int offsetX, int offsetY, int width, int height, 
                                    net.shlomo1412.booster.client.widget.ButtonDisplayMode displayMode) {
-        loadedWidgetValues.put(widgetId, new Object[] { offsetX, offsetY, width, height, displayMode });
+        loadWidgetSettings(widgetId, offsetX, offsetY, width, height, displayMode,
+                net.shlomo1412.booster.client.widget.WidgetTextureMode.DEFAULT);
+    }
+
+    /**
+     * Loads widget settings from config with display and texture mode (before defaults are known).
+     */
+    public void loadWidgetSettings(String widgetId, int offsetX, int offsetY, int width, int height,
+                                   net.shlomo1412.booster.client.widget.ButtonDisplayMode displayMode,
+                                   net.shlomo1412.booster.client.widget.WidgetTextureMode textureMode) {
+        loadedWidgetValues.put(widgetId, new Object[] { offsetX, offsetY, width, height, displayMode, textureMode });
     }
     
     /**
@@ -150,6 +163,17 @@ public abstract class GUIModule extends Module {
             ModuleManager.getInstance().saveConfig();
         }
     }
+
+    /**
+     * Updates widget texture mode and triggers config save.
+     */
+    public void updateWidgetTextureMode(String widgetId, net.shlomo1412.booster.client.widget.WidgetTextureMode mode) {
+        WidgetSettings settings = widgetSettings.get(widgetId);
+        if (settings != null) {
+            settings.setTextureMode(mode);
+            ModuleManager.getInstance().saveConfig();
+        }
+    }
     
     /**
      * Resets a widget's position to defaults.
@@ -201,6 +225,13 @@ public abstract class GUIModule extends Module {
             settings.resetSize();
         }
         ModuleManager.getInstance().saveConfig();
+    }
+    
+    /**
+     * Resets all widget positions and sizes (called by editor mode reset).
+     */
+    public void resetPosition() {
+        resetAllWidgets();
     }
     
     public int getDefaultWidth() {

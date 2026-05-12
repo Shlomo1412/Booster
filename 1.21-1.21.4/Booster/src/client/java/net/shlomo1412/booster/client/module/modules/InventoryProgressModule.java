@@ -138,6 +138,7 @@ public class InventoryProgressModule extends GUIModule {
             currentX, currentY, currentWidth, currentHeight,
             anchorX, anchorY
         );
+        progressBarWidget.setTextureMode(settings.getTextureMode());
         
         return progressBarWidget;
     }

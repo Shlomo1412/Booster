@@ -162,6 +162,7 @@ public class DropAllModule extends GUIModule {
             
             // Skip hotbar if not included
             if (!includeHotbar && inventoryIndex < 9) continue;
+            if (SlotLockManager.isLocked(handler.syncId, slot.id)) continue;
             
             if (slot.hasStack()) {
                 // CTRL+Q to drop entire stack

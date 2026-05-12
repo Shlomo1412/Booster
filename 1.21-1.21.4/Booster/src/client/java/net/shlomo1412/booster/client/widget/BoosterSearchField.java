@@ -20,6 +20,7 @@ public class BoosterSearchField extends TextFieldWidget implements DraggableWidg
     private String displayName;
     private int anchorX;
     private int anchorY;
+    private WidgetTextureMode textureMode = WidgetTextureMode.DEFAULT;
     
     public BoosterSearchField(int x, int y, int width, int height, Text placeholder) {
         super(MinecraftClient.getInstance().textRenderer, x, y, width, height, placeholder);
@@ -34,6 +35,10 @@ public class BoosterSearchField extends TextFieldWidget implements DraggableWidg
         this.displayName = displayName;
         this.anchorX = anchorX;
         this.anchorY = anchorY;
+        var settings = module.getWidgetSettings(widgetId);
+        if (settings != null) {
+            this.textureMode = settings.getTextureMode();
+        }
         
         // Register with editor manager
         EditorModeManager.getInstance().registerDraggableWidget(this);
@@ -41,6 +46,24 @@ public class BoosterSearchField extends TextFieldWidget implements DraggableWidg
     
     @Override
     public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+        setDrawsBackground(textureMode == WidgetTextureMode.DEFAULT);
+        if (textureMode == WidgetTextureMode.TRANSPARENT) {
+            int bg = isFocused() ? 0x55333333 : 0x30111111;
+            int border = isFocused() ? 0x80FFFFFF : 0x60444444;
+            context.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), bg);
+            context.fill(getX(), getY(), getX() + getWidth(), getY() + 1, border);
+            context.fill(getX(), getY() + getHeight() - 1, getX() + getWidth(), getY() + getHeight(), border);
+            context.fill(getX(), getY(), getX() + 1, getY() + getHeight(), border);
+            context.fill(getX() + getWidth() - 1, getY(), getX() + getWidth(), getY() + getHeight(), border);
+        } else if (textureMode == WidgetTextureMode.INVENTORY) {
+            int outer = isFocused() ? 0xFFAFAFAF : 0xFF8B8B8B;
+            int dark = 0xFF373737;
+            int inner = isFocused() ? 0xFFA5A5A5 : 0xFF8B8B8B;
+            context.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), outer);
+            context.fill(getX() + 1, getY() + 1, getX() + getWidth() - 1, getY() + getHeight() - 1, dark);
+            context.fill(getX() + 1, getY() + 1, getX() + getWidth() - 2, getY() + getHeight() - 2, inner);
+        }
+
         // Draw editor mode highlight if in editor mode
         EditorModeManager editor = EditorModeManager.getInstance();
         if (editor.isEditorModeActive()) {
@@ -156,6 +179,14 @@ public class BoosterSearchField extends TextFieldWidget implements DraggableWidg
     
     public String getWidgetId() {
         return widgetId;
+    }
+
+    public WidgetTextureMode getTextureMode() {
+        return textureMode;
+    }
+
+    public void setTextureMode(WidgetTextureMode textureMode) {
+        this.textureMode = textureMode;
     }
     
     public void setAnchor(int anchorX, int anchorY) {

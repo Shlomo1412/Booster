@@ -14,9 +14,13 @@ import net.shlomo1412.booster.client.editor.ScreenInfo;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.ModuleSetting;
 import net.shlomo1412.booster.client.module.WidgetSettings;
+import net.shlomo1412.booster.client.module.modules.InventoryProgressModule;
 import net.shlomo1412.booster.client.widget.BoosterButton;
 import net.shlomo1412.booster.client.widget.ButtonDisplayMode;
+import net.shlomo1412.booster.client.widget.BoosterSearchField;
 import net.shlomo1412.booster.client.widget.SortButton;
+import net.shlomo1412.booster.client.widget.WidgetTextureMode;
+import net.shlomo1412.booster.client.widget.BoosterProgressBar;
 
 import java.util.HashSet;
 import java.util.List;
@@ -81,6 +85,7 @@ public class EditorSidebar implements Drawable, Element {
     
     // Display mode button bounds for click detection
     private int[] displayModeButtonBounds = null; // {x, y, width, height}
+    private int[] textureModeButtonBounds = null; // {x, y, width, height}
 
     public EditorSidebar(MinecraftClient client, ScreenInfo screenInfo,
                          List<GUIModule> activeModules, Consumer<Element> addChild) {
@@ -299,9 +304,10 @@ public class EditorSidebar implements Drawable, Element {
                     x + PADDING, currentY, TEXT_DIM_COLOR);
             currentY += LINE_HEIGHT;
             
-            // Display mode control for BoosterButton and SortButton
+            // Display mode/texture controls for Booster widgets
             currentY += 4;
             currentY = renderDisplayModeControl(context, x, currentY, mouseX, mouseY, selected);
+            currentY = renderTextureModeControl(context, x, currentY, mouseX, mouseY, selected);
         }
 
         // Calculate max scroll based on content height
@@ -427,6 +433,53 @@ public class EditorSidebar implements Drawable, Element {
         displayModeButtonBounds = new int[] {buttonX, buttonY, buttonWidth, buttonHeight};
         
         return currentY + buttonHeight + 4;
+    }
+
+    private int renderTextureModeControl(DrawContext context, int x, int startY,
+                                         int mouseX, int mouseY, DraggableWidget widget) {
+        WidgetTextureMode currentMode = null;
+        if (widget instanceof BoosterButton boosterButton) {
+            currentMode = boosterButton.getTextureMode();
+        } else if (widget instanceof SortButton sortButton) {
+            currentMode = sortButton.getTextureMode();
+        } else if (widget instanceof BoosterSearchField searchField) {
+            currentMode = searchField.getTextureMode();
+        } else if (widget instanceof BoosterProgressBar progressBar) {
+            currentMode = progressBar.getTextureMode();
+        }
+
+        if (currentMode == null) {
+            textureModeButtonBounds = null;
+            return startY;
+        }
+
+        int buttonX = x + PADDING + 2;
+        int buttonY = startY;
+        int buttonWidth = getCurrentWidth() - PADDING * 2 - 4;
+        int buttonHeight = 16;
+        boolean hovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
+                mouseY >= buttonY && mouseY < buttonY + buttonHeight;
+
+        int bgColor = hovered ? 0xFF3a3a3a : SECTION_BG_COLOR;
+        context.fill(buttonX, buttonY, buttonX + buttonWidth, buttonY + buttonHeight, bgColor);
+        context.fill(buttonX, buttonY, buttonX + buttonWidth, buttonY + 1, BORDER_COLOR);
+        context.fill(buttonX, buttonY + buttonHeight - 1, buttonX + buttonWidth, buttonY + buttonHeight, BORDER_COLOR);
+        context.fill(buttonX, buttonY, buttonX + 1, buttonY + buttonHeight, BORDER_COLOR);
+        context.fill(buttonX + buttonWidth - 1, buttonY, buttonX + buttonWidth, buttonY + buttonHeight, BORDER_COLOR);
+
+        String label = "Texture: ";
+        String value = currentMode.getDisplayName();
+        context.drawTextWithShadow(textRenderer, label, buttonX + 4, buttonY + 4, TEXT_DIM_COLOR);
+        int labelWidth = textRenderer.getWidth(label);
+        context.drawTextWithShadow(textRenderer, value, buttonX + 4 + labelWidth, buttonY + 4,
+                hovered ? ACCENT_COLOR : TEXT_COLOR);
+        context.drawTextWithShadow(textRenderer, "◀", buttonX + buttonWidth - 24, buttonY + 4,
+                hovered ? ACCENT_COLOR : TEXT_DIM_COLOR);
+        context.drawTextWithShadow(textRenderer, "▶", buttonX + buttonWidth - 12, buttonY + 4,
+                hovered ? ACCENT_COLOR : TEXT_DIM_COLOR);
+
+        textureModeButtonBounds = new int[] {buttonX, buttonY, buttonWidth, buttonHeight};
+        return startY + buttonHeight + 4;
     }
 
     private int renderModuleSection(DrawContext context, int x, int startY,
@@ -788,6 +841,46 @@ public class EditorSidebar implements Drawable, Element {
                         return true;
                     }
                 }
+            }
+        }
+
+        if (textureModeButtonBounds != null) {
+            int btnX = textureModeButtonBounds[0];
+            int btnY = textureModeButtonBounds[1];
+            int btnW = textureModeButtonBounds[2];
+            int btnH = textureModeButtonBounds[3];
+            if (mouseX >= btnX && mouseX < btnX + btnW && mouseY >= btnY && mouseY < btnY + btnH) {
+                DraggableWidget selected = EditorModeManager.getInstance().getSelectedWidget();
+                if (selected instanceof BoosterButton boosterButton) {
+                    WidgetTextureMode next = boosterButton.getTextureMode().next();
+                    boosterButton.setTextureMode(next);
+                    GUIModule module = boosterButton.getModule();
+                    if (module != null && boosterButton.getWidgetId() != null) {
+                        module.updateWidgetTextureMode(boosterButton.getWidgetId(), next);
+                    }
+                } else if (selected instanceof SortButton sortButton) {
+                    WidgetTextureMode next = sortButton.getTextureMode().next();
+                    sortButton.setTextureMode(next);
+                    GUIModule module = sortButton.getModule();
+                    if (module != null && sortButton.getWidgetId() != null) {
+                        module.updateWidgetTextureMode(sortButton.getWidgetId(), next);
+                    }
+                } else if (selected instanceof BoosterSearchField searchField) {
+                    WidgetTextureMode next = searchField.getTextureMode().next();
+                    searchField.setTextureMode(next);
+                    GUIModule module = searchField.getModule();
+                    if (module != null && searchField.getWidgetId() != null) {
+                        module.updateWidgetTextureMode(searchField.getWidgetId(), next);
+                    }
+                } else if (selected instanceof BoosterProgressBar progressBar) {
+                    WidgetTextureMode next = progressBar.getTextureMode().next();
+                    progressBar.setTextureMode(next);
+                    GUIModule module = progressBar.getModule();
+                    if (module != null) {
+                        module.updateWidgetTextureMode(InventoryProgressModule.PROGRESS_WIDGET_ID, next);
+                    }
+                }
+                return true;
             }
         }
 

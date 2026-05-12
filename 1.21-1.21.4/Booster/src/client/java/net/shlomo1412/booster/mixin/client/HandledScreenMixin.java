@@ -16,7 +16,9 @@ import net.minecraft.screen.PlayerScreenHandler;
 import net.minecraft.screen.ScreenHandler;
 import net.shlomo1412.booster.client.editor.DraggableWidget;
 import net.shlomo1412.booster.client.editor.EditorModeManager;
+import net.shlomo1412.booster.client.editor.EditorOverlay;
 import net.shlomo1412.booster.client.editor.ScreenInfo;
+import org.lwjgl.glfw.GLFW;
 import net.shlomo1412.booster.client.editor.widget.ConfigButton;
 import net.shlomo1412.booster.client.editor.widget.EditButton;
 import net.shlomo1412.booster.client.editor.widget.EditorGuide;
@@ -37,6 +39,8 @@ import net.shlomo1412.booster.client.module.modules.SearchBarModule;
 import net.shlomo1412.booster.client.module.modules.SmartFuelModule;
 import net.shlomo1412.booster.client.module.modules.SortContainerModule;
 import net.shlomo1412.booster.client.module.modules.SortInventoryModule;
+import net.shlomo1412.booster.client.module.modules.SlotLockManager;
+import net.shlomo1412.booster.client.module.modules.SlotLockModule;
 import net.shlomo1412.booster.client.module.modules.StealStoreModule;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -91,6 +95,12 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
     // Module references for rendering
     @Unique
     private SearchBarModule booster$searchBarModule;
+
+    @Unique
+    private StealStoreModule booster$stealStoreModule;
+
+    @Unique
+    private SlotLockModule booster$slotLockModule;
     
     @Unique
     private InventoryProgressModule booster$inventoryProgressModule;
@@ -157,6 +167,8 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         editor.clearDraggableWidgets();
         booster$hasBoosterContent = false;
         booster$searchBarModule = null;
+        booster$stealStoreModule = null;
+        booster$slotLockModule = ModuleManager.getInstance().getModule(SlotLockModule.class);
         booster$inventoryProgressModule = null;
         booster$sortInventoryModule = null;
         booster$sortContainerModule = null;
@@ -190,6 +202,7 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
             // Add Steal/Store buttons
             StealStoreModule stealStoreModule = ModuleManager.getInstance().getModule(StealStoreModule.class);
             if (stealStoreModule != null) {
+                booster$stealStoreModule = stealStoreModule;
                 booster$hasBoosterContent = true;
                 
                 if (stealStoreModule.isEnabled()) {
@@ -645,9 +658,60 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
                         matchCount > 0 ? 0xFF44FF44 : 0xFFFF4444);
                 }
             }
+
+            // Show search-aware steal/store markers unless CTRL is held
+            if (booster$stealStoreModule != null && !net.minecraft.client.gui.screen.Screen.hasControlDown()) {
+                boolean hasContainerMatches = booster$searchBarModule.hasMatchesInContainerInventory();
+                boolean hasPlayerMatches = booster$searchBarModule.hasMatchesInPlayerInventory();
+                for (var button : booster$stealStoreModule.getButtons()) {
+                    String label = button.getMessage().getString();
+                    boolean isStore = label.contains("⬆");
+                    boolean isSteal = label.contains("⬇");
+                    if ((isStore && hasPlayerMatches) || (isSteal && hasContainerMatches)) {
+                        context.drawTextWithShadow(this.textRenderer, "*", button.getX() + button.getWidth() - 5, button.getY() + 1, 0xFF4DA3FF);
+                    }
+                }
+            }
+        }
+
+        // Render locked slot overlays
+        if (booster$slotLockModule != null && booster$slotLockModule.isEnabled()) {
+            for (var slot : handler.slots) {
+                SlotLockManager.LockType lockType = SlotLockManager.getLockType(handler.syncId, slot.id);
+                if (lockType == null) {
+                    continue;
+                }
+                int slotX = x + slot.x;
+                int slotY = y + slot.y;
+                int color = lockType == SlotLockManager.LockType.HARD
+                    ? booster$slotLockModule.getHardLockColor()
+                    : booster$slotLockModule.getSoftLockColor();
+                context.fill(slotX, slotY, slotX + 16, slotY + 16, color);
+
+                if (slot.hasStack()) {
+                    booster$drawLockIcon(context, slotX + 10, slotY + 1, true,
+                        lockType == SlotLockManager.LockType.HARD);
+                } else {
+                    booster$drawLockIcon(context, slotX + 3, slotY + 2, false,
+                        lockType == SlotLockManager.LockType.HARD);
+                }
+            }
         }
         
         EditorModeManager editor = EditorModeManager.getInstance();
+        
+        // Update screen dimensions for editor
+        if (editor.isEditorModeActive()) {
+            editor.setScreenDimensions(this.width, this.height);
+        }
+        
+        // Render editor overlay (grid, alignment guides, widget bounds) before sidebar
+        if (editor.isEditorModeActive()) {
+            context.getMatrices().push();
+            context.getMatrices().translate(0, 0, 500);
+            EditorOverlay.render(context, this.width, this.height);
+            context.getMatrices().pop();
+        }
         
         // Render editor UI on top of everything using elevated z-level
         // Items render at z=150-200, item count labels at z=200-250, tooltips at z=400
@@ -743,6 +807,11 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
             return;
         }
 
+        if (EditorOverlay.handleMouseClick(mouseX, mouseY, this.width, this.height)) {
+            cir.setReturnValue(true);
+            return;
+        }
+
         // Check sidebar first
         if (booster$editorSidebar != null && booster$editorSidebar.isMouseOver(mouseX, mouseY)) {
             if (booster$editorSidebar.mouseClicked(mouseX, mouseY, button)) {
@@ -813,9 +882,109 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
      * Block slot clicks in editor mode.
      */
     @Inject(method = "onMouseClick(Lnet/minecraft/screen/slot/Slot;IILnet/minecraft/screen/slot/SlotActionType;)V", at = @At("HEAD"), cancellable = true)
-    private void booster$onSlotClick(CallbackInfo ci) {
+    private void booster$onSlotClick(net.minecraft.screen.slot.Slot slot, int slotId, int button,
+                                     net.minecraft.screen.slot.SlotActionType actionType, CallbackInfo ci) {
+        if (slot != null && net.minecraft.client.gui.screen.Screen.hasAltDown()) {
+            boolean hard = net.minecraft.client.gui.screen.Screen.hasShiftDown();
+            SlotLockManager.toggleLock(handler.syncId, slot.id, hard);
+            ci.cancel();
+            return;
+        }
+
+        if (slot != null && SlotLockManager.isHardLocked(handler.syncId, slot.id)) {
+            ci.cancel();
+            return;
+        }
+
         if (EditorModeManager.getInstance().isEditorModeActive()) {
             ci.cancel();
+        }
+    }
+    
+    /**
+     * Handle keyboard shortcuts for editor mode.
+     */
+    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
+    private void booster$onKeyPressed(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        EditorModeManager editor = EditorModeManager.getInstance();
+        
+        if (!editor.isEditorModeActive()) {
+            return;
+        }
+        
+        boolean ctrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean shift = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+        
+        // Ctrl+Z - Undo
+        if (ctrl && keyCode == GLFW.GLFW_KEY_Z && !shift) {
+            editor.undo();
+            cir.setReturnValue(true);
+            return;
+        }
+        
+        // Ctrl+Y or Ctrl+Shift+Z - Redo
+        if ((ctrl && keyCode == GLFW.GLFW_KEY_Y) || (ctrl && shift && keyCode == GLFW.GLFW_KEY_Z)) {
+            editor.redo();
+            cir.setReturnValue(true);
+            return;
+        }
+        
+        // G - Toggle grid
+        if (keyCode == GLFW.GLFW_KEY_G && !ctrl) {
+            editor.setShowGrid(!editor.isShowGrid());
+            cir.setReturnValue(true);
+            return;
+        }
+        
+        // S - Toggle snap to grid (when not typing)
+        if (keyCode == GLFW.GLFW_KEY_S && !ctrl) {
+            editor.setSnapToGrid(!editor.isSnapToGrid());
+            cir.setReturnValue(true);
+            return;
+        }
+        
+        // A - Toggle alignment guides
+        if (keyCode == GLFW.GLFW_KEY_A && !ctrl) {
+            editor.setShowAlignmentGuides(!editor.isShowAlignmentGuides());
+            cir.setReturnValue(true);
+            return;
+        }
+        
+        // C - Toggle center lines
+        if (keyCode == GLFW.GLFW_KEY_C && !ctrl) {
+            editor.setShowCenterLines(!editor.isShowCenterLines());
+            cir.setReturnValue(true);
+            return;
+        }
+        
+        // Delete or Backspace - Reset selected widget position
+        if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+            editor.resetSelectedWidget();
+            cir.setReturnValue(true);
+            return;
+        }
+        
+        // Arrow keys - Nudge selected widget
+        int nudgeAmount = shift ? 10 : 1; // Shift for larger nudge
+        if (keyCode == GLFW.GLFW_KEY_UP) {
+            editor.nudgeSelectedWidget(0, -nudgeAmount);
+            cir.setReturnValue(true);
+            return;
+        }
+        if (keyCode == GLFW.GLFW_KEY_DOWN) {
+            editor.nudgeSelectedWidget(0, nudgeAmount);
+            cir.setReturnValue(true);
+            return;
+        }
+        if (keyCode == GLFW.GLFW_KEY_LEFT) {
+            editor.nudgeSelectedWidget(-nudgeAmount, 0);
+            cir.setReturnValue(true);
+            return;
+        }
+        if (keyCode == GLFW.GLFW_KEY_RIGHT) {
+            editor.nudgeSelectedWidget(nudgeAmount, 0);
+            cir.setReturnValue(true);
+            return;
         }
     }
 
@@ -843,6 +1012,33 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> extends Screen
         if (booster$infiniteCraftModule != null) {
             booster$infiniteCraftModule.clearButton();
             booster$infiniteCraftModule = null;
+        }
+
+        SlotLockManager.clearScreen(handler.syncId);
+    }
+
+    @Unique
+    private void booster$drawLockIcon(DrawContext context, int x, int y, boolean small, boolean hard) {
+        int border = 0xFF1A1A1A;
+        int body = hard ? 0xFFFFC499 : 0xFF9ED8FF;
+
+        if (small) {
+            // 6x6 compact lock icon for occupied slots (top-right corner)
+            context.fill(x + 1, y, x + 5, y + 1, border);
+            context.fill(x, y + 1, x + 1, y + 3, border);
+            context.fill(x + 5, y + 1, x + 6, y + 3, border);
+
+            context.fill(x + 1, y + 2, x + 5, y + 6, border);
+            context.fill(x + 2, y + 3, x + 4, y + 5, body);
+        } else {
+            // 10x10 centered lock icon for empty slots
+            context.fill(x + 2, y, x + 8, y + 1, border);
+            context.fill(x + 1, y + 1, x + 2, y + 4, border);
+            context.fill(x + 8, y + 1, x + 9, y + 4, border);
+
+            context.fill(x + 1, y + 3, x + 9, y + 10, border);
+            context.fill(x + 2, y + 4, x + 8, y + 9, body);
+            context.fill(x + 4, y + 6, x + 6, y + 8, border);
         }
     }
 }

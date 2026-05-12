@@ -7,6 +7,7 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.text.Text;
+import net.minecraft.entity.player.PlayerInventory;
 import net.shlomo1412.booster.client.module.GUIModule;
 import net.shlomo1412.booster.client.module.ModuleSetting;
 import net.shlomo1412.booster.client.module.WidgetSettings;
@@ -26,6 +27,8 @@ public class SearchBarModule extends GUIModule {
     
     // Module settings
     private final ModuleSetting.ColorSetting highlightColor;
+    private final ModuleSetting.EnumSetting<HighlightStyle> highlightStyle;
+    private final ModuleSetting.ColorSetting spotlightColor;
     
     // Runtime state
     private BoosterSearchField searchField;
@@ -45,15 +48,48 @@ public class SearchBarModule extends GUIModule {
         );
         
         // Initialize settings
+        this.highlightStyle = new ModuleSetting.EnumSetting<>(
+            "highlight_style",
+            "Highlight Style",
+            "Color overlays slots or applies a spotlight effect",
+            HighlightStyle.COLOR,
+            HighlightStyle.class
+        );
+
         this.highlightColor = new ModuleSetting.ColorSetting(
             "highlight_color",
             "Highlight Color",
             "The color used to highlight matching items",
             0x8000FF00  // Semi-transparent green
         );
+
+        this.spotlightColor = new ModuleSetting.ColorSetting(
+            "spotlight_color",
+            "Spotlight Darkness",
+            "Darkness color used outside matching slots",
+            0xAA000000
+        );
         
         // Register settings
+        registerSetting(highlightStyle);
         registerSetting(highlightColor);
+        registerSetting(spotlightColor);
+    }
+
+    public enum HighlightStyle {
+        COLOR("Color"),
+        SPOTLIGHT("Spotlight");
+
+        private final String displayName;
+
+        HighlightStyle(String displayName) {
+            this.displayName = displayName;
+        }
+
+        @Override
+        public String toString() {
+            return displayName;
+        }
     }
     
     // Track if we're in compact mode (moved to side due to space constraints)
@@ -225,7 +261,11 @@ public class SearchBarModule extends GUIModule {
                 int slotY = containerY + slot.y;
                 
                 // Draw highlight overlay
-                context.fill(slotX, slotY, slotX + 16, slotY + 16, color);
+                if (highlightStyle.getValue() == HighlightStyle.SPOTLIGHT) {
+                    context.fill(slotX, slotY, slotX + 16, slotY + 16, 0x35FFFFFF);
+                } else {
+                    context.fill(slotX, slotY, slotX + 16, slotY + 16, color);
+                }
                 
                 // Draw border
                 int borderColor = (color & 0x00FFFFFF) | 0xFF000000;  // Full opacity border
@@ -242,6 +282,19 @@ public class SearchBarModule extends GUIModule {
      */
     public void renderSlotDimming(DrawContext context, int containerX, int containerY) {
         if (currentQuery.isEmpty() || currentScreen == null) {
+            return;
+        }
+
+        if (highlightStyle.getValue() == HighlightStyle.SPOTLIGHT) {
+            context.fill(0, 0, currentScreen.width, currentScreen.height, spotlightColor.getValue());
+
+            for (Slot slot : currentScreen.getScreenHandler().slots) {
+                if (matchingSlots.contains(slot.id)) {
+                    int slotX = containerX + slot.x;
+                    int slotY = containerY + slot.y;
+                    context.fill(slotX, slotY, slotX + 16, slotY + 16, 0x45FFFFFF);
+                }
+            }
             return;
         }
         
@@ -277,6 +330,34 @@ public class SearchBarModule extends GUIModule {
      */
     public int getMatchCount() {
         return matchingSlots.size();
+    }
+
+    public boolean matchesSlot(int slotId) {
+        return matchingSlots.contains(slotId);
+    }
+
+    public boolean hasMatchesInPlayerInventory() {
+        if (currentScreen == null) {
+            return false;
+        }
+        for (Slot slot : currentScreen.getScreenHandler().slots) {
+            if (slot.inventory instanceof PlayerInventory && matchingSlots.contains(slot.id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean hasMatchesInContainerInventory() {
+        if (currentScreen == null) {
+            return false;
+        }
+        for (Slot slot : currentScreen.getScreenHandler().slots) {
+            if (!(slot.inventory instanceof PlayerInventory) && matchingSlots.contains(slot.id)) {
+                return true;
+            }
+        }
+        return false;
     }
     
     /**

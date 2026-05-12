@@ -32,12 +32,14 @@ import net.shlomo1412.booster.client.module.modules.RecoverItemsModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitGameModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToServersModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToWorldsModule;
+import net.shlomo1412.booster.client.module.modules.ScreenshotViewerModule;
 import net.shlomo1412.booster.client.module.modules.SearchBarModule;
 import net.shlomo1412.booster.client.module.modules.ServerInfoModule;
 import net.shlomo1412.booster.client.module.modules.ShowInventoryModule;
 import net.shlomo1412.booster.client.module.modules.SmartFuelModule;
 import net.shlomo1412.booster.client.module.modules.SortContainerModule;
 import net.shlomo1412.booster.client.module.modules.SortInventoryModule;
+import net.shlomo1412.booster.client.module.modules.SlotLockModule;
 import net.shlomo1412.booster.client.module.modules.StealStoreModule;
 import net.shlomo1412.booster.client.module.modules.SwitchWorldModule;
 import net.shlomo1412.booster.client.module.modules.TeleportToDeathModule;
@@ -80,6 +82,7 @@ public class BoosterClient implements ClientModInitializer {
         manager.register(new SortContainerModule());
         manager.register(new DropAllModule());
         manager.register(new DropAllContainerModule());
+        manager.register(new SlotLockModule());
         
         // GUI Modules - Crafting Table Screen
         manager.register(new ClearGridModule());
@@ -100,6 +103,7 @@ public class BoosterClient implements ClientModInitializer {
         manager.register(new SaveQuitToWorldsModule());
         manager.register(new SaveQuitToServersModule());
         manager.register(new OpenScreenshotsModule());
+        manager.register(new ScreenshotViewerModule());
         
         // Pause Menu Modules - Singleplayer Only
         manager.register(new OpenWorldFolderModule());

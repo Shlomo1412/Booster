@@ -20,6 +20,7 @@ import net.shlomo1412.booster.client.module.modules.ReconnectModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitGameModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToServersModule;
 import net.shlomo1412.booster.client.module.modules.SaveQuitToWorldsModule;
+import net.shlomo1412.booster.client.module.modules.ScreenshotViewerModule;
 import net.shlomo1412.booster.client.module.modules.ServerInfoModule;
 import net.shlomo1412.booster.client.module.modules.SwitchWorldModule;
 import org.spongepowered.asm.mixin.Mixin;
@@ -52,6 +53,9 @@ public abstract class GameMenuScreenMixin extends Screen {
     
     @Unique
     private OpenScreenshotsModule booster$openScreenshotsModule;
+    
+    @Unique
+    private ScreenshotViewerModule booster$screenshotViewerModule;
     
     // Singleplayer-only modules
     @Unique
@@ -101,6 +105,7 @@ public abstract class GameMenuScreenMixin extends Screen {
         // Reset all module references
         booster$saveQuitGameModule = null;
         booster$openScreenshotsModule = null;
+        booster$screenshotViewerModule = null;
         booster$saveQuitToWorldsModule = null;
         booster$saveQuitToServersModule = null;
         booster$openWorldFolderModule = null;
@@ -161,21 +166,37 @@ public abstract class GameMenuScreenMixin extends Screen {
         }
         
         // Row 2: Screenshots + World/Server specific buttons
+        int row2ButtonX = anchorX;
+        
         // Add Open Screenshots button (works for both SP and MP)
         booster$openScreenshotsModule = ModuleManager.getInstance().getModule(OpenScreenshotsModule.class);
         if (booster$openScreenshotsModule != null && booster$openScreenshotsModule.isEnabled()) {
             booster$hasBoosterContent = true;
             booster$openScreenshotsModule.createButton(
                 self,
-                anchorX,
+                row2ButtonX,
                 anchorY + 24,  // Below the first row of buttons
                 button -> this.addDrawableChild(button)
             );
+            row2ButtonX += 22;
+        }
+        
+        // Add Screenshot Viewer button (works for both SP and MP)
+        booster$screenshotViewerModule = ModuleManager.getInstance().getModule(ScreenshotViewerModule.class);
+        if (booster$screenshotViewerModule != null && booster$screenshotViewerModule.isEnabled()) {
+            booster$hasBoosterContent = true;
+            booster$screenshotViewerModule.createButton(
+                self,
+                row2ButtonX,
+                anchorY + 24,
+                button -> this.addDrawableChild(button)
+            );
+            row2ButtonX += 22;
         }
         
         // Singleplayer-only modules: Open World Folder, Datapacks, Switch World
         if (isSingleplayer) {
-            int spButtonX = anchorX + 122;
+            int spButtonX = row2ButtonX + 8;  // Small gap between common and SP buttons
             
             // Open World Folder button
             booster$openWorldFolderModule = ModuleManager.getInstance().getModule(OpenWorldFolderModule.class);
@@ -218,7 +239,7 @@ public abstract class GameMenuScreenMixin extends Screen {
         
         // Multiplayer-only modules: Reconnect, Server Info, Connect to Server
         if (!isSingleplayer) {
-            int mpButtonX = anchorX + 122;
+            int mpButtonX = row2ButtonX + 8;  // Small gap between common and MP buttons
             
             // Reconnect button
             booster$reconnectModule = ModuleManager.getInstance().getModule(ReconnectModule.class);

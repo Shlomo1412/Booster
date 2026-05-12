@@ -127,7 +127,7 @@ public class ClearFurnaceModule extends GUIModule {
         // Clear output first (most valuable - smelted items)
         if (clearOutputSetting.getValue()) {
             ItemStack outputStack = handler.getSlot(2).getStack();
-            if (!outputStack.isEmpty()) {
+            if (!outputStack.isEmpty() && !SlotLockManager.isLocked(syncId, handler.getSlot(2).id)) {
                 // Shift-click to move to inventory
                 client.interactionManager.clickSlot(syncId, 2, 0, SlotActionType.QUICK_MOVE, client.player);
                 itemsMoved++;
@@ -137,7 +137,7 @@ public class ClearFurnaceModule extends GUIModule {
         // Clear input slot
         if (clearInputSetting.getValue()) {
             ItemStack inputStack = handler.getSlot(0).getStack();
-            if (!inputStack.isEmpty()) {
+            if (!inputStack.isEmpty() && !SlotLockManager.isLocked(syncId, handler.getSlot(0).id)) {
                 client.interactionManager.clickSlot(syncId, 0, 0, SlotActionType.QUICK_MOVE, client.player);
                 itemsMoved++;
             }
@@ -146,7 +146,7 @@ public class ClearFurnaceModule extends GUIModule {
         // Clear fuel slot
         if (clearFuelSetting.getValue()) {
             ItemStack fuelStack = handler.getSlot(1).getStack();
-            if (!fuelStack.isEmpty()) {
+            if (!fuelStack.isEmpty() && !SlotLockManager.isLocked(syncId, handler.getSlot(1).id)) {
                 client.interactionManager.clickSlot(syncId, 1, 0, SlotActionType.QUICK_MOVE, client.player);
                 itemsMoved++;
             }

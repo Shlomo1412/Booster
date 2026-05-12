@@ -120,6 +120,7 @@ public class DropAllContainerModule extends GUIModule {
         for (Slot slot : handler.slots) {
             // Skip player inventory slots - we only want container slots
             if (slot.inventory instanceof PlayerInventory) continue;
+            if (SlotLockManager.isLocked(handler.syncId, slot.id)) continue;
             
             if (slot.hasStack()) {
                 // CTRL+Q to drop entire stack

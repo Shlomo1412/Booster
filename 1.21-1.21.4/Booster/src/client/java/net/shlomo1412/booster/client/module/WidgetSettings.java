@@ -1,6 +1,7 @@
 package net.shlomo1412.booster.client.module;
 
 import net.shlomo1412.booster.client.widget.ButtonDisplayMode;
+import net.shlomo1412.booster.client.widget.WidgetTextureMode;
 
 /**
  * Stores position and size settings for an individual widget.
@@ -12,6 +13,7 @@ public class WidgetSettings {
     private int width;
     private int height;
     private ButtonDisplayMode displayMode;
+    private WidgetTextureMode textureMode;
     
     // Defaults for resetting
     private final int defaultOffsetX;
@@ -19,6 +21,7 @@ public class WidgetSettings {
     private final int defaultWidth;
     private final int defaultHeight;
     private static final ButtonDisplayMode DEFAULT_DISPLAY_MODE = ButtonDisplayMode.AUTO;
+    private static final WidgetTextureMode DEFAULT_TEXTURE_MODE = WidgetTextureMode.DEFAULT;
     
     public WidgetSettings(int defaultOffsetX, int defaultOffsetY, int defaultWidth, int defaultHeight) {
         this.defaultOffsetX = defaultOffsetX;
@@ -31,6 +34,7 @@ public class WidgetSettings {
         this.width = defaultWidth;
         this.height = defaultHeight;
         this.displayMode = DEFAULT_DISPLAY_MODE;
+        this.textureMode = DEFAULT_TEXTURE_MODE;
     }
     
     // Copy constructor for cloning defaults
@@ -45,6 +49,7 @@ public class WidgetSettings {
         this.width = other.width;
         this.height = other.height;
         this.displayMode = other.displayMode;
+        this.textureMode = other.textureMode;
     }
     
     public int getOffsetX() { return offsetX; }
@@ -52,12 +57,14 @@ public class WidgetSettings {
     public int getWidth() { return width; }
     public int getHeight() { return height; }
     public ButtonDisplayMode getDisplayMode() { return displayMode; }
+    public WidgetTextureMode getTextureMode() { return textureMode; }
     
     public void setOffsetX(int offsetX) { this.offsetX = offsetX; }
     public void setOffsetY(int offsetY) { this.offsetY = offsetY; }
     public void setWidth(int width) { this.width = width; }
     public void setHeight(int height) { this.height = height; }
     public void setDisplayMode(ButtonDisplayMode mode) { this.displayMode = mode; }
+    public void setTextureMode(WidgetTextureMode mode) { this.textureMode = mode; }
     
     public void setOffset(int x, int y) {
         this.offsetX = x;
@@ -82,11 +89,16 @@ public class WidgetSettings {
     public void resetDisplayMode() {
         this.displayMode = DEFAULT_DISPLAY_MODE;
     }
+
+    public void resetTextureMode() {
+        this.textureMode = DEFAULT_TEXTURE_MODE;
+    }
     
     public void reset() {
         resetOffset();
         resetSize();
         resetDisplayMode();
+        resetTextureMode();
     }
     
     public int getDefaultOffsetX() { return defaultOffsetX; }
@@ -94,4 +106,5 @@ public class WidgetSettings {
     public int getDefaultWidth() { return defaultWidth; }
     public int getDefaultHeight() { return defaultHeight; }
     public ButtonDisplayMode getDefaultDisplayMode() { return DEFAULT_DISPLAY_MODE; }
+    public WidgetTextureMode getDefaultTextureMode() { return DEFAULT_TEXTURE_MODE; }
 }

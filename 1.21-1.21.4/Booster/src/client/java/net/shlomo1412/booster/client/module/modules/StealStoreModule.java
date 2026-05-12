@@ -7,6 +7,7 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import net.shlomo1412.booster.client.module.GUIModule;
+import net.shlomo1412.booster.client.module.ModuleManager;
 import net.shlomo1412.booster.client.module.WidgetSettings;
 import net.shlomo1412.booster.client.widget.BoosterButton;
 
@@ -107,10 +108,14 @@ public class StealStoreModule extends GUIModule {
         if (client.player == null || client.interactionManager == null) return;
         
         var handler = screen.getScreenHandler();
+        SearchBarModule searchBar = ModuleManager.getInstance().getModule(SearchBarModule.class);
+        boolean searchRestricted = searchBar != null && searchBar.isEnabled() && searchBar.isSearchActive() && !Screen.hasControlDown();
         
         for (Slot slot : handler.slots) {
             // Skip player inventory slots
             if (slot.inventory instanceof PlayerInventory) continue;
+            if (SlotLockManager.isLocked(handler.syncId, slot.id)) continue;
+            if (searchRestricted && !searchBar.matchesSlot(slot.id)) continue;
             
             if (slot.hasStack()) {
                 // Shift-click to move to player inventory
@@ -133,10 +138,14 @@ public class StealStoreModule extends GUIModule {
         if (client.player == null || client.interactionManager == null) return;
         
         var handler = screen.getScreenHandler();
+        SearchBarModule searchBar = ModuleManager.getInstance().getModule(SearchBarModule.class);
+        boolean searchRestricted = searchBar != null && searchBar.isEnabled() && searchBar.isSearchActive() && !Screen.hasControlDown();
         
         for (Slot slot : handler.slots) {
             // Only process player inventory slots (not hotbar for now)
             if (!(slot.inventory instanceof PlayerInventory)) continue;
+            if (SlotLockManager.isLocked(handler.syncId, slot.id)) continue;
+            if (searchRestricted && !searchBar.matchesSlot(slot.id)) continue;
             
             if (slot.hasStack()) {
                 // Shift-click to move to container

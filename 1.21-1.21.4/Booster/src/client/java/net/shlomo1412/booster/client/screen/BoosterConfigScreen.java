@@ -525,7 +525,7 @@ public class BoosterConfigScreen extends Screen {
             // Render each setting with interactive controls
             for (var setting : alertModule.getSettings()) {
                 contentY = renderSettingControl(context, contentX, contentY, contentWidth, 
-                    setting, alertModule, mouseX, mouseY);
+                    setting, selectedModule, mouseX, mouseY);
             }
             contentY += 10;
         }
@@ -555,32 +555,19 @@ public class BoosterConfigScreen extends Screen {
             }
             contentY += 6;
             
-            // Show module settings if available (for GUI modules, still show as read-only)
+            // Interactive settings for GUI modules (editable outside editor mode)
             if (guiModule.hasSettings()) {
                 context.fill(contentX, contentY, contentX + contentWidth, contentY + 1, CARD_BORDER);
                 contentY += 10;
                 
                 context.drawTextWithShadow(this.textRenderer,
-                    Text.literal("Settings").formatted(Formatting.WHITE),
+                    Text.literal("⚙ Settings").formatted(Formatting.WHITE, Formatting.BOLD),
                     contentX, contentY, TEXT_PRIMARY);
-                contentY += 14;
-                
-                context.drawTextWithShadow(this.textRenderer,
-                    Text.literal("(Edit in Editor Mode)").formatted(Formatting.ITALIC),
-                    contentX, contentY, TEXT_DIM);
-                contentY += 14;
+                contentY += 18;
                 
                 for (var setting : guiModule.getSettings()) {
-                    String settingName = setting.getName();
-                    String settingValue = formatSettingValue(setting);
-                    context.drawTextWithShadow(this.textRenderer,
-                        settingName + ":",
-                        contentX, contentY, TEXT_SECONDARY);
-                    contentY += 12;
-                    context.drawTextWithShadow(this.textRenderer,
-                        "  " + settingValue,
-                        contentX, contentY, 0xFF88CCFF);
-                    contentY += 14;
+                    contentY = renderSettingControl(context, contentX, contentY, contentWidth,
+                        setting, selectedModule, mouseX, mouseY);
                 }
                 contentY += 6;
             }
@@ -825,7 +812,7 @@ public class BoosterConfigScreen extends Screen {
      * Uses stacked layout: name on top, control below.
      */
     private int renderSettingControl(DrawContext context, int x, int y, int width,
-                                      ModuleSetting<?> setting, AlertModule module,
+                                      ModuleSetting<?> setting, Module module,
                                       int mouseX, int mouseY) {
         // Setting name on its own line
         context.drawTextWithShadow(this.textRenderer, setting.getName(), x, y, TEXT_SECONDARY);
@@ -1055,7 +1042,7 @@ public class BoosterConfigScreen extends Screen {
      */
     private record SettingControl(
         ModuleSetting<?> setting,
-        AlertModule module,
+        Module module,
         int x, int y, int width, int height,
         SettingControlType type
     ) {}

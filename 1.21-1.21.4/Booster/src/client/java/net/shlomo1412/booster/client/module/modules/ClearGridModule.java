@@ -84,6 +84,9 @@ public class ClearGridModule extends GUIModule {
         // Shift-click each to move to inventory
         for (int i = 1; i <= 9; i++) {
             Slot slot = craftingHandler.getSlot(i);
+            if (SlotLockManager.isLocked(craftingHandler.syncId, slot.id)) {
+                continue;
+            }
             if (slot.hasStack()) {
                 // Shift-click to move to inventory
                 client.interactionManager.clickSlot(

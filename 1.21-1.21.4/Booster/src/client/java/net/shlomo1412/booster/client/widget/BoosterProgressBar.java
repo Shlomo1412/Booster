@@ -25,6 +25,7 @@ public class BoosterProgressBar implements Drawable, Element, DraggableWidget {
     private int x, y, width, height;
     private int anchorX, anchorY;
     private boolean focused = false;
+    private WidgetTextureMode textureMode = WidgetTextureMode.DEFAULT;
     
     public BoosterProgressBar(InventoryProgressModule module, HandledScreen<?> screen, 
                                int x, int y, int width, int height, int anchorX, int anchorY) {
@@ -52,7 +53,15 @@ public class BoosterProgressBar implements Drawable, Element, DraggableWidget {
         FillDirection direction = module.getFillDirectionSetting().getValue();
         
         // Draw background
-        context.fill(x, y, x + width, y + height, bgColor);
+        if (textureMode == WidgetTextureMode.DEFAULT) {
+            context.fill(x, y, x + width, y + height, bgColor);
+        } else if (textureMode == WidgetTextureMode.TRANSPARENT) {
+            context.fill(x, y, x + width, y + height, 0x30111111);
+        } else {
+            context.fill(x, y, x + width, y + height, 0xFF8B8B8B);
+            context.fill(x + 1, y + 1, x + width - 1, y + height - 1, 0xFF373737);
+            context.fill(x + 1, y + 1, x + width - 2, y + height - 2, 0xFF8B8B8B);
+        }
         
         // Draw fill based on direction
         int fillX1 = x, fillY1 = y, fillX2 = x + width, fillY2 = y + height;
@@ -222,5 +231,13 @@ public class BoosterProgressBar implements Drawable, Element, DraggableWidget {
     public void setAnchor(int anchorX, int anchorY) {
         this.anchorX = anchorX;
         this.anchorY = anchorY;
+    }
+
+    public WidgetTextureMode getTextureMode() {
+        return textureMode;
+    }
+
+    public void setTextureMode(WidgetTextureMode textureMode) {
+        this.textureMode = textureMode;
     }
 }

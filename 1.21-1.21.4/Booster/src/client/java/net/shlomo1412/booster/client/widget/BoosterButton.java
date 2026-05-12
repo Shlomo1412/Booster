@@ -27,6 +27,7 @@ public class BoosterButton extends ButtonWidget implements DraggableWidget {
     
     // Display mode
     private ButtonDisplayMode displayMode = ButtonDisplayMode.AUTO;
+    private WidgetTextureMode textureMode = WidgetTextureMode.DEFAULT;
     
     // Editor mode support
     private GUIModule parentModule;
@@ -75,6 +76,14 @@ public class BoosterButton extends ButtonWidget implements DraggableWidget {
      */
     public ButtonDisplayMode getDisplayMode() {
         return displayMode;
+    }
+
+    public void setTextureMode(WidgetTextureMode mode) {
+        this.textureMode = mode;
+    }
+
+    public WidgetTextureMode getTextureMode() {
+        return textureMode;
     }
     
     /**
@@ -206,7 +215,39 @@ public class BoosterButton extends ButtonWidget implements DraggableWidget {
             }
         }
 
-        super.renderWidget(context, mouseX, mouseY, delta);
+        if (textureMode == WidgetTextureMode.DEFAULT) {
+            super.renderWidget(context, mouseX, mouseY, delta);
+        } else {
+            renderCustomBackground(context);
+            int textColor = this.active ? 0xFFFFFFFF : 0xFFA0A0A0;
+            context.drawCenteredTextWithShadow(
+                MinecraftClient.getInstance().textRenderer,
+                getMessage(),
+                getX() + width / 2,
+                getY() + (height - 8) / 2,
+                textColor
+            );
+        }
+    }
+
+    private void renderCustomBackground(DrawContext context) {
+        if (textureMode == WidgetTextureMode.TRANSPARENT) {
+            int bg = isHovered() ? 0x40333333 : 0x20111111;
+            int border = isHovered() ? 0x80FFFFFF : 0x60444444;
+            context.fill(getX(), getY(), getX() + width, getY() + height, bg);
+            context.fill(getX(), getY(), getX() + width, getY() + 1, border);
+            context.fill(getX(), getY() + height - 1, getX() + width, getY() + height, border);
+            context.fill(getX(), getY(), getX() + 1, getY() + height, border);
+            context.fill(getX() + width - 1, getY(), getX() + width, getY() + height, border);
+            return;
+        }
+
+        int outer = isHovered() ? 0xFFAFAFAF : 0xFF8B8B8B;
+        int dark = 0xFF373737;
+        int inner = isHovered() ? 0xFFA5A5A5 : 0xFF8B8B8B;
+        context.fill(getX(), getY(), getX() + width, getY() + height, outer);
+        context.fill(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1, dark);
+        context.fill(getX() + 1, getY() + 1, getX() + width - 2, getY() + height - 2, inner);
     }
 
     /**
@@ -235,6 +276,13 @@ public class BoosterButton extends ButtonWidget implements DraggableWidget {
         this.displayName = displayName;
         this.anchorX = anchorX;
         this.anchorY = anchorY;
+
+        if (module != null) {
+            var settings = module.getWidgetSettings(widgetId);
+            if (settings != null) {
+                this.textureMode = settings.getTextureMode();
+            }
+        }
         
         // Register with editor manager
         EditorModeManager.getInstance().registerDraggableWidget(this);

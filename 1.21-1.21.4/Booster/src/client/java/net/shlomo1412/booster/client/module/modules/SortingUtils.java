@@ -36,6 +36,9 @@ public class SortingUtils {
                 // Inventory slot indices: 0-8 = hotbar, 9-35 = main inventory
                 int invIndex = slot.getIndex();
                 if (includeHotbar || (invIndex >= 9 && invIndex <= 35)) {
+                    if (SlotLockManager.isLocked(handler.syncId, slot.id)) {
+                        continue;
+                    }
                     playerSlots.add(slot);
                 }
             }
@@ -59,6 +62,9 @@ public class SortingUtils {
         List<Slot> containerSlots = new ArrayList<>();
         for (Slot slot : handler.slots) {
             if (!(slot.inventory instanceof PlayerInventory)) {
+                if (SlotLockManager.isLocked(handler.syncId, slot.id)) {
+                    continue;
+                }
                 containerSlots.add(slot);
             }
         }
